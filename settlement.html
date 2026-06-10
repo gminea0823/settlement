@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정산 현황 관리</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#F5F2EE;color:#1E2D3D;min-height:100vh;padding:0}
+  .topbar{background:#fff;border-bottom:0.5px solid #D7E2EE;padding:0 2rem;height:56px;display:flex;align-items:center;gap:10px}
+  .topbar h1{font-size:16px;font-weight:500}
+  .topbar i{font-size:18px;color:#6B8CAE}
+  .wrap{max-width:1300px;margin:0 auto;padding:1.5rem}
+  .sub{font-size:13px;color:#7C8FA6;margin-bottom:1.25rem;margin-top:4px}
+  .summary{display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap}
+  .stat{background:#fff;border-radius:10px;padding:12px 20px;min-width:130px;border:0.5px solid #D7E2EE}
+  .stat-label{font-size:11px;color:#7C8FA6;margin-bottom:2px}
+  .stat-val{font-size:20px;font-weight:500;color:#1E2D3D}
+  .stat-val.green{color:#6B8CAE}
+  .stat-val.amber{color:#BA7517}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;align-items:center}
+  .toolbar button{font-size:13px;padding:7px 16px;border-radius:8px;border:0.5px solid #C7D6E5;background:#fff;color:#1E2D3D;cursor:pointer;display:flex;align-items:center;gap:5px;transition:background .15s}
+  .toolbar button:hover{background:#E2EBF4}
+  .toolbar button.primary{background:#6B8CAE;color:#fff;border-color:#6B8CAE}
+  .toolbar button.primary:hover{background:#51718F}
+  .tbl-wrap{overflow-x:auto;border-radius:12px;border:0.5px solid #D7E2EE;background:#fff}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:960px;table-layout:fixed}
+  thead tr{background:#EAF1F8}
+  th{padding:10px 10px;text-align:left;font-weight:500;color:#7C8FA6;border-bottom:0.5px solid #D7E2EE;white-space:nowrap;font-size:12px;position:relative;overflow:hidden}
+  td{padding:8px 10px;border-bottom:0.5px solid #E6EEF6;vertical-align:middle;overflow:hidden}
+  .col-resizer{position:absolute;top:0;right:0;width:6px;height:100%;cursor:col-resize;user-select:none;touch-action:none}
+  .col-resizer:hover,.col-resizer.active{background:#6B8CAE}
+  .group-header td{background:#DCE7F2;font-weight:600;cursor:pointer;padding:9px 10px;white-space:nowrap}
+  .group-header:hover td{background:#CDDDED}
+  .group-header .ti{margin-right:6px;display:inline-block;transition:transform .15s}
+  .group-header.collapsed .ti{transform:rotate(-90deg)}
+  .group-count{color:#7C8FA6;font-weight:400;font-size:12px;margin-left:8px}
+  .subgroup-header td{background:#F0F5FA;font-weight:500;color:#8095AC;font-size:12px;padding:6px 10px;border-bottom:0.5px solid #E6EEF6}
+  .group-subtotal td{background:#E5EEF6;font-weight:600;border-bottom:0.5px solid #D7E2EE;color:#1E2D3D}
+  .group-subtotal .subtotal-label{text-align:right;color:#7C8FA6;font-weight:500}
+  .group-subtotal .subtotal-amt{text-align:right}
+  th .filter-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;cursor:pointer;color:#A9BDD1;margin-left:3px;vertical-align:middle}
+  th .filter-btn:hover{background:#E1ECF6;color:#1E2D3D}
+  th .filter-btn.active{color:#6B8CAE}
+  th .filter-btn i{font-size:13px;pointer-events:none}
+  #filterPanel{display:none;position:fixed;z-index:200;background:#fff;border:0.5px solid #C7D6E5;border-radius:8px;box-shadow:0 6px 20px rgba(107,140,174,.18);padding:8px;width:210px;font-weight:400;font-size:12px;color:#1E2D3D}
+  #filterPanel.open{display:block}
+  #filterPanel .fp-sort{display:flex;flex-direction:column;gap:2px;margin-bottom:6px;padding-bottom:6px;border-bottom:0.5px solid #D7E2EE}
+  #filterPanel .fp-sort button{text-align:left;background:none;border:none;padding:5px 6px;border-radius:5px;cursor:pointer;font-size:12px;color:#1E2D3D;display:flex;align-items:center;gap:5px;font-family:inherit}
+  #filterPanel .fp-sort button:hover{background:#E2EBF4}
+  #filterPanel .fp-search{width:100%;padding:5px 7px;border:0.5px solid #C7D6E5;border-radius:5px;font-size:12px;margin-bottom:6px;font-family:inherit}
+  #filterPanel .fp-actions{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px}
+  #filterPanel .fp-actions a{color:#6B8CAE;cursor:pointer;text-decoration:none}
+  #filterPanel .fp-list{max-height:160px;overflow-y:auto;border:0.5px solid #E6EEF6;border-radius:5px;padding:2px}
+  #filterPanel .fp-item{display:flex;align-items:center;gap:6px;padding:3px 5px;border-radius:4px;cursor:pointer;font-size:12px}
+  #filterPanel .fp-item:hover{background:#E2EBF4}
+  #filterPanel .fp-buttons{display:flex;gap:6px;margin-top:8px}
+  #filterPanel .fp-buttons button{flex:1;padding:6px;border-radius:6px;border:0.5px solid #C7D6E5;background:#fff;cursor:pointer;font-size:12px;font-family:inherit}
+  #filterPanel .fp-buttons button.primary{background:#6B8CAE;color:#fff;border-color:#6B8CAE}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:#F4F8FC}
+  .editable{background:transparent;border:none;outline:none;font-size:13px;color:#1E2D3D;width:100%;font-family:inherit;padding:3px 5px;border-radius:5px}
+  .editable:focus{background:#E2EBF4;outline:2px solid #6B8CAE;outline-offset:-1px}
+  input[type="date"].editable{min-width:120px;cursor:pointer}
+  select.status-sel{font-size:12px;padding:4px 8px;border-radius:20px;border:0.5px solid;cursor:pointer;font-family:inherit;outline:none;background:transparent;transition:all .15s}
+  select.done{background:#EAF3DE;color:#3B6D11;border-color:#639922}
+  select.pending{background:#FAEEDA;color:#854F0B;border-color:#BA7517}
+  select.none{background:#E6EEF5;color:#8094A8;border-color:#C7D6E5}
+  .row-num{color:#A9BDD1;font-size:11px;text-align:center;width:28px}
+  .del-btn{background:none;border:none;cursor:pointer;color:#A9BDD1;font-size:15px;padding:3px 7px;border-radius:5px}
+  .del-btn:hover{color:#E24B4A;background:#FCEBEB}
+  .amount-input{text-align:right}
+  @media(max-width:768px){
+    .wrap{padding:1rem .75rem}
+    .topbar{padding:0 1rem}
+  }
+  @media(prefers-color-scheme:dark){
+    body{background:#141B24;color:#DBE6F0}
+    .topbar,.stat,.tbl-wrap{background:#1F2937;border-color:#34465C}
+    thead tr{background:#1B2530}
+    .editable{color:#DBE6F0}
+    .editable:focus{background:#1B2530}
+    tbody tr:hover td{background:#1B2530}
+    td{border-color:#2A3A4A}
+    th{color:#7E93AA}
+    .group-header td{background:#1E2C3B}
+    .group-header:hover td{background:#243446}
+    .subgroup-header td{background:#18222D;color:#7E93AA}
+    .group-subtotal td{background:#1E2C3B;color:#DBE6F0}
+    th .filter-btn:hover{background:#2A3A4A;color:#DBE6F0}
+    #filterPanel{background:#1F2937;border-color:#34465C;color:#DBE6F0}
+    #filterPanel .fp-sort button{color:#DBE6F0}
+    #filterPanel .fp-sort button:hover{background:#2A3A4A}
+    #filterPanel .fp-search{background:#141B24;color:#DBE6F0;border-color:#34465C}
+    #filterPanel .fp-list{border-color:#34465C}
+    #filterPanel .fp-item:hover{background:#2A3A4A}
+    #filterPanel .fp-buttons button{background:#1F2937;color:#DBE6F0;border-color:#34465C}
+    select.none{background:#2A3A4A;color:#8FA3B8;border-color:#3D5066}
+    .toolbar button{background:#1F2937;color:#DBE6F0;border-color:#34465C}
+    .toolbar button:hover{background:#2A3A4A}
+  }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <i class="ti ti-receipt-2"></i>
+  <h1>정산 현황 관리</h1>
+</div>
+
+<div class="wrap">
+  <p class="sub">셀을 클릭하면 직접 수정할 수 있어요. 정산현황·세금계산서는 드롭박스로 변경하세요.</p>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="toolbar">
+    <button class="primary" onclick="addRow()"><i class="ti ti-plus"></i> 행 추가</button>
+    <button onclick="document.getElementById('excelInput').click()"><i class="ti ti-file-spreadsheet"></i> 엑셀 업로드</button>
+    <input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this.files[0])">
+    <button onclick="document.getElementById('acctInput').click()"><i class="ti ti-building-bank"></i> 계좌정보 업로드</button>
+    <input type="file" id="acctInput" accept=".xlsx,.xls" style="display:none" onchange="importAccountInfo(this.files[0])">
+    <button onclick="exportCSV()"><i class="ti ti-download"></i> CSV 저장</button>
+    <button onclick="saveLocal()"><i class="ti ti-device-floppy"></i> 저장</button>
+    <button onclick="loadLocal()"><i class="ti ti-refresh"></i> 불러오기</button>
+  </div>
+
+  <div class="tbl-wrap">
+    <table id="tbl">
+      <colgroup>
+        <col style="width:40px">
+        <col style="width:120px">
+        <col style="width:120px">
+        <col style="width:220px">
+        <col style="width:90px">
+        <col style="width:150px">
+        <col style="width:90px">
+        <col style="width:120px">
+        <col style="width:100px">
+        <col style="width:120px">
+        <col style="width:36px">
+      </colgroup>
+      <thead>
+        <tr id="headRow">
+          <th style="width:32px">#</th>
+          <th>정산시작일<span class="filter-btn" data-key="startDate" onclick="toggleFilterPanel(event,'startDate')"><i class="ti ti-filter"></i></span></th>
+          <th>정산종료일<span class="filter-btn" data-key="endDate" onclick="toggleFilterPanel(event,'endDate')"><i class="ti ti-filter"></i></span></th>
+          <th>소속 협력사<span class="filter-btn" data-key="company" onclick="toggleFilterPanel(event,'company')"><i class="ti ti-filter"></i></span></th>
+          <th>대표자<span class="filter-btn" data-key="rep" onclick="toggleFilterPanel(event,'rep')"><i class="ti ti-filter"></i></span></th>
+          <th>계좌번호<span class="filter-btn" data-key="acct" onclick="toggleFilterPanel(event,'acct')"><i class="ti ti-filter"></i></span></th>
+          <th>은행<span class="filter-btn" data-key="bank" onclick="toggleFilterPanel(event,'bank')"><i class="ti ti-filter"></i></span></th>
+          <th style="text-align:right">이체금액 (원)<span class="filter-btn" data-key="amount" onclick="toggleFilterPanel(event,'amount')"><i class="ti ti-filter"></i></span></th>
+          <th>정산현황<span class="filter-btn" data-key="settle" onclick="toggleFilterPanel(event,'settle')"><i class="ti ti-filter"></i></span></th>
+          <th>세금계산서 발행<span class="filter-btn" data-key="tax" onclick="toggleFilterPanel(event,'tax')"><i class="ti ti-filter"></i></span></th>
+          <th style="width:36px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div id="filterPanel"></div>
+</div>
+
+<script>
+const today = new Date().toISOString().split('T')[0];
+
+let rows = JSON.parse(localStorage.getItem('settle_rows') || 'null') || [
+  {startDate:today,endDate:today,company:'',rep:'',acct:'',bank:'',amount:'',settle:'',tax:''}
+];
+rows.forEach(r=>{
+  if(r.startDate===undefined) r.startDate = r.date || today;
+  if(r.endDate===undefined) r.endDate = r.date || today;
+  if(r.settle==='미완료') r.settle = '';
+  if(r.tax==='미완료') r.tax = '';
+});
+
+let collapsedGroups = JSON.parse(localStorage.getItem('settle_collapsed') || '[]');
+let acctMap = JSON.parse(localStorage.getItem('settle_acctmap') || '{}');
+const FILTER_COLS = {
+  startDate:{label:'정산시작일'},
+  endDate:{label:'정산종료일'},
+  company:{label:'소속 협력사'},
+  rep:{label:'대표자'},
+  acct:{label:'계좌번호'},
+  bank:{label:'은행'},
+  amount:{label:'이체금액', numeric:true, display:v=>v===''?'(공백)':formatAmount(v)},
+  settle:{label:'정산현황', display:v=>v==='완료'?'✓ 완료':v==='미완료'?'✗ 미완료':'-'},
+  tax:{label:'세금계산서 발행', display:v=>v==='완료'?'✓ 완료':v==='미완료'?'✗ 미완료':'-'}
+};
+
+let columnFilters = {}; // key -> Set of allowed raw values (없으면 전체 허용)
+
+function matchesFilters(r){
+  for(const key in columnFilters){
+    if(!columnFilters[key].has(r[key]||'')) return false;
+  }
+  return true;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function toggleFilterPanel(e,key){
+  e.stopPropagation();
+  const panel = document.getElementById('filterPanel');
+  const wasOpenForKey = panel.classList.contains('open') && panel.dataset.key===key;
+  panel.classList.remove('open');
+  if(wasOpenForKey) return;
+
+  panel.dataset.key = key;
+  panel.innerHTML = buildFilterPanel(key);
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  let left = rect.left;
+  const maxLeft = window.innerWidth - 220;
+  if(left > maxLeft) left = Math.max(8, maxLeft);
+  panel.style.top = (rect.bottom + 4) + 'px';
+  panel.style.left = left + 'px';
+  panel.classList.add('open');
+}
+
+document.addEventListener('click', (e)=>{
+  const panel = document.getElementById('filterPanel');
+  if(panel.classList.contains('open') && !e.target.closest('#filterPanel') && !e.target.closest('.filter-btn')){
+    panel.classList.remove('open');
+  }
+});
+
+function buildFilterPanel(key){
+  const col = FILTER_COLS[key];
+  const valuesSet = new Set();
+  rows.forEach(r=> valuesSet.add(r[key] || ''));
+  const values = Array.from(valuesSet).sort((a,b)=>{
+    if(col.numeric) return (parseFloat(String(a).replace(/[^0-9.\-]/g,''))||0) - (parseFloat(String(b).replace(/[^0-9.\-]/g,''))||0);
+    return String(a).localeCompare(String(b),'ko');
+  });
+
+  const active = columnFilters[key];
+  const checkedSet = active || new Set(values);
+
+  const itemsHtml = values.map(v=>{
+    const label = col.display ? col.display(v) : (v===''?'(공백)':v);
+    const checked = checkedSet.has(v);
+    return `<label class="fp-item"><input type="checkbox" value="${escapeHtml(v)}" ${checked?'checked':''}><span>${escapeHtml(label)}</span></label>`;
+  }).join('');
+
+  return `
+    <div class="fp-sort">
+      <button onclick="sortByColumn('${key}','asc')"><i class="ti ti-sort-ascending-2"></i> 오름차순 정렬</button>
+      <button onclick="sortByColumn('${key}','desc')"><i class="ti ti-sort-descending-2"></i> 내림차순 정렬</button>
+    </div>
+    <input type="text" class="fp-search" placeholder="검색" oninput="filterFpList(this,'${key}')">
+    <div class="fp-actions">
+      <a onclick="fpSelectAll('${key}',true)">모두 선택</a>
+      <a onclick="fpSelectAll('${key}',false)">모두 지우기</a>
+    </div>
+    <div class="fp-list" id="fp-list-${key}">${itemsHtml}</div>
+    <div class="fp-buttons">
+      <button onclick="closeFilterPanel()">취소</button>
+      <button class="primary" onclick="applyFilter('${key}')">확인</button>
+    </div>
+  `;
+}
+
+function filterFpList(input,key){
+  const term = input.value.trim().toLowerCase();
+  document.querySelectorAll(`#fp-list-${key} .fp-item`).forEach(item=>{
+    item.style.display = item.textContent.toLowerCase().includes(term) ? '' : 'none';
+  });
+}
+
+function fpSelectAll(key,checked){
+  document.querySelectorAll(`#fp-list-${key} .fp-item`).forEach(item=>{
+    if(item.style.display !== 'none') item.querySelector('input').checked = checked;
+  });
+}
+
+function closeFilterPanel(){
+  document.getElementById('filterPanel').classList.remove('open');
+}
+
+function applyFilter(key){
+  const checked = new Set();
+  let allChecked = true;
+  document.querySelectorAll(`#fp-list-${key} .fp-item input`).forEach(cb=>{
+    if(cb.checked) checked.add(cb.value); else allChecked = false;
+  });
+  if(allChecked) delete columnFilters[key];
+  else columnFilters[key] = checked;
+  closeFilterPanel();
+  render();
+}
+
+function sortByColumn(key,dir){
+  const col = FILTER_COLS[key];
+  rows.sort((a,b)=>{
+    const av = a[key]||'', bv = b[key]||'';
+    let cmp = col.numeric
+      ? (parseFloat(String(av).replace(/[^0-9.\-]/g,''))||0) - (parseFloat(String(bv).replace(/[^0-9.\-]/g,''))||0)
+      : String(av).localeCompare(String(bv),'ko');
+    return dir==='asc' ? cmp : -cmp;
+  });
+  closeFilterPanel();
+  autoSave();
+  render();
+}
+
+function applyAcctMap(){
+  rows.forEach(r=>{
+    if(r.company && acctMap[r.company]){
+      r.rep = acctMap[r.company].rep;
+      r.acct = acctMap[r.company].acct;
+      r.bank = acctMap[r.company].bank;
+    }
+  });
+}
+
+function onCompanyBlur(i){
+  const company = rows[i].company;
+  if(company && acctMap[company]){
+    rows[i].rep = acctMap[company].rep;
+    rows[i].acct = acctMap[company].acct;
+    rows[i].bank = acctMap[company].bank;
+    autoSave();
+    render();
+  }
+}
+
+function groupKey(dateStr){
+  if(!dateStr) return '날짜없음';
+  const [y,m] = dateStr.split('-');
+  return `${y.slice(2)}년 ${parseInt(m,10)}월`;
+}
+
+function formatShortDate(dateStr){
+  if(!dateStr) return '';
+  const [y,m,d] = dateStr.split('-');
+  return `${parseInt(m,10)}.${parseInt(d,10)}`;
+}
+
+function dateRangeLabel(start,end){
+  if(!start && !end) return '날짜없음';
+  if(start===end) return formatShortDate(start);
+  return `${formatShortDate(start)} ~ ${formatShortDate(end)}`;
+}
+
+function toggleGroup(key){
+  const idx = collapsedGroups.indexOf(key);
+  if(idx>=0) collapsedGroups.splice(idx,1); else collapsedGroups.push(key);
+  localStorage.setItem('settle_collapsed', JSON.stringify(collapsedGroups));
+  render();
+}
+
+function rowHtml(r,i){
+  return `
+      <td class="row-num">${i+1}</td>
+      <td><input class="editable" type="date" value="${r.startDate}" onchange="rows[${i}].startDate=this.value;autoSave()"></td>
+      <td><input class="editable" type="date" value="${r.endDate}" onchange="rows[${i}].endDate=this.value;autoSave();render()"></td>
+      <td><input class="editable" placeholder="협력사명" value="${r.company}" oninput="rows[${i}].company=this.value;autoSave()" onblur="onCompanyBlur(${i})" style="min-width:100px"></td>
+      <td><input class="editable" placeholder="대표자명" value="${r.rep}" oninput="rows[${i}].rep=this.value;autoSave()" style="min-width:80px"></td>
+      <td><input class="editable" placeholder="계좌번호" value="${r.acct}" oninput="rows[${i}].acct=this.value;autoSave()" style="min-width:140px"></td>
+      <td><input class="editable" placeholder="은행명" value="${r.bank}" oninput="rows[${i}].bank=this.value;autoSave()" style="min-width:80px"></td>
+      <td><input class="editable amount-input" placeholder="0" value="${formatAmount(r.amount)}" onfocus="this.value=rows[${i}].amount" onblur="this.value=formatAmount(rows[${i}].amount)" oninput="rows[${i}].amount=this.value;autoSave();updateSummary()" style="min-width:110px"></td>
+      <td>
+        <select class="status-sel ${statusClass(r.settle)}" onchange="rows[${i}].settle=this.value;this.className='status-sel '+statusClass(this.value);autoSave();updateSummary()">
+          <option value="" ${!r.settle?'selected':''}>-</option>
+          <option value="완료" ${r.settle==='완료'?'selected':''}>✓ 완료</option>
+          <option value="미완료" ${r.settle==='미완료'?'selected':''}>✗ 미완료</option>
+        </select>
+      </td>
+      <td>
+        <select class="status-sel ${statusClass(r.tax)}" onchange="rows[${i}].tax=this.value;this.className='status-sel '+statusClass(this.value);autoSave()">
+          <option value="" ${!r.tax?'selected':''}>-</option>
+          <option value="완료" ${r.tax==='완료'?'selected':''}>✓ 완료</option>
+          <option value="미완료" ${r.tax==='미완료'?'selected':''}>✗ 미완료</option>
+        </select>
+      </td>
+      <td><button class="del-btn" onclick="delRow(${i})" title="삭제">✕</button></td>
+    `;
+}
+
+function render(){
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '';
+
+  // 정산종료일 기준 연/월 그룹으로 묶기 (필터 적용)
+  const groups = {};
+  rows.forEach((r,i)=>{
+    if(!matchesFilters(r)) return;
+    const key = groupKey(r.endDate);
+    (groups[key] = groups[key] || []).push(i);
+  });
+  const sortedKeys = Object.keys(groups).sort((a,b)=>{
+    const da = rows[groups[a][0]].endDate || '';
+    const db = rows[groups[b][0]].endDate || '';
+    return db.slice(0,7).localeCompare(da.slice(0,7));
+  });
+
+  if(sortedKeys.length===0){
+    tb.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#888780;padding:20px">검색 결과가 없어요.</td></tr>';
+    updateSummary();
+    updateFilterBtnStates();
+    return;
+  }
+
+  sortedKeys.forEach(key=>{
+    const indices = groups[key];
+    const collapsed = collapsedGroups.includes(key);
+
+    const headerTr = document.createElement('tr');
+    headerTr.className = 'group-header'+(collapsed?' collapsed':'');
+    headerTr.innerHTML = `<td colspan="11" onclick="toggleGroup('${key}')"><i class="ti ti-chevron-down"></i>${key}<span class="group-count">${indices.length}건</span></td>`;
+    tb.appendChild(headerTr);
+
+    if(!collapsed){
+      // 정산시작일~정산종료일 구간(주차)별로 다시 묶기
+      const subGroups = {};
+      indices.forEach(i=>{
+        const r = rows[i];
+        const subKey = `${r.startDate}__${r.endDate}`;
+        (subGroups[subKey] = subGroups[subKey] || []).push(i);
+      });
+      const subKeys = Object.keys(subGroups).sort((a,b)=>{
+        const sa = rows[subGroups[a][0]].startDate || '';
+        const sb = rows[subGroups[b][0]].startDate || '';
+        return sa.localeCompare(sb);
+      });
+
+      subKeys.forEach(subKey=>{
+        const subIndices = subGroups[subKey];
+        const first = rows[subIndices[0]];
+        const label = dateRangeLabel(first.startDate, first.endDate);
+
+        const subHeaderTr = document.createElement('tr');
+        subHeaderTr.className = 'subgroup-header';
+        subHeaderTr.innerHTML = `<td colspan="11">${label}<span class="group-count">${subIndices.length}건</span></td>`;
+        tb.appendChild(subHeaderTr);
+
+        subIndices.forEach(i=>{
+          const tr = document.createElement('tr');
+          tr.dataset.idx = i;
+          tr.innerHTML = rowHtml(rows[i], i);
+          tb.appendChild(tr);
+        });
+
+        const subtotal = subIndices.reduce((s,i)=>s+(parseFloat(String(rows[i].amount).replace(/[^0-9.\-]/g,''))||0),0);
+        const subtotalTr = document.createElement('tr');
+        subtotalTr.className = 'group-subtotal';
+        subtotalTr.innerHTML = `<td colspan="7" class="subtotal-label">${label} 이체 합계</td><td class="subtotal-amt">${formatAmount(subtotal)}</td><td colspan="3"></td>`;
+        tb.appendChild(subtotalTr);
+      });
+    }
+  });
+
+  updateSummary();
+  updateFilterBtnStates();
+}
+
+function updateFilterBtnStates(){
+  document.querySelectorAll('#headRow .filter-btn').forEach(btn=>{
+    btn.classList.toggle('active', !!columnFilters[btn.dataset.key]);
+  });
+}
+
+function statusClass(v){
+  return v==='완료' ? 'done' : v==='미완료' ? 'pending' : 'none';
+}
+
+function formatAmount(v){
+  if(v===''||v===null||v===undefined) return '';
+  const n = parseFloat(String(v).replace(/[^0-9.\-]/g,''));
+  if(isNaN(n)) return '';
+  return n.toLocaleString('ko-KR',{maximumFractionDigits:2});
+}
+
+function updateSummary(){
+  const total = rows.length;
+  const done = rows.filter(r=>r.settle==='완료').length;
+  const pending = total - done;
+  const totalAmt = rows.reduce((s,r)=>s+(parseFloat(String(r.amount).replace(/[^0-9.\-]/g,''))||0),0);
+  document.getElementById('summary').innerHTML = `
+    <div class="stat"><div class="stat-label">전체 건수</div><div class="stat-val">${total}건</div></div>
+    <div class="stat"><div class="stat-label">정산 완료</div><div class="stat-val green">${done}건</div></div>
+    <div class="stat"><div class="stat-label">정산 미완료</div><div class="stat-val amber">${pending}건</div></div>
+    <div class="stat"><div class="stat-label">총 이체금액</div><div class="stat-val">${totalAmt.toLocaleString()}원</div></div>
+  `;
+}
+
+function addRow(){
+  const newIdx = rows.length;
+  rows.push({startDate:today,endDate:today,company:'',rep:'',acct:'',bank:'',amount:'',settle:'',tax:''});
+  render();
+  setTimeout(()=>{
+    const tr = document.querySelector(`#tbody tr[data-idx="${newIdx}"]`);
+    const inputs = tr ? tr.querySelectorAll('input') : [];
+    if(inputs[2]) inputs[2].focus();
+  },50);
+}
+
+function delRow(i){
+  if(rows.length<=1){alert('마지막 행은 삭제할 수 없어요.');return;}
+  if(confirm('이 행을 삭제할까요?')){rows.splice(i,1);render();}
+}
+
+let autoTimer;
+function autoSave(){
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(()=>localStorage.setItem('settle_rows',JSON.stringify(rows)),800);
+}
+
+function saveLocal(){
+  localStorage.setItem('settle_rows',JSON.stringify(rows));
+  alert('저장되었어요! 다음에 이 파일을 열면 자동으로 불러와요.');
+}
+
+function loadLocal(){
+  const d = localStorage.getItem('settle_rows');
+  if(d){rows=JSON.parse(d);render();alert('불러왔어요!');}
+  else alert('저장된 데이터가 없어요.');
+}
+
+function excelDateToStr(v){
+  if(v instanceof Date && !isNaN(v)) {
+    return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+  }
+  if(typeof v==='string'){
+    const m = v.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+    if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+    return v;
+  }
+  if(typeof v==='number'){
+    const d = XLSX.SSF.parse_date_code(v);
+    if(d) return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');
+  }
+  return today;
+}
+
+function importExcel(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+    if(aoa.length < 2){ alert('데이터가 없는 파일이에요.'); return; }
+
+    const header = aoa[0].map(h=>String(h||'').trim());
+    const startCol = header.findIndex(h=>h.includes('정산시작일'));
+    const endCol = header.findIndex(h=>h.includes('정산종료일'));
+    let companyCol = header.findIndex(h=>h.includes('협력사명'));
+    if(companyCol===-1) companyCol = header.findIndex(h=>h.includes('협력사')&&!h.includes('아이디')&&!h.toUpperCase().includes('ID'));
+    const amountCol = header.findIndex(h=>h.includes('정산예정금액'));
+
+    if(startCol===-1||endCol===-1||companyCol===-1||amountCol===-1){
+      alert('필요한 컬럼(정산시작일/정산종료일/협력사명/정산예정금액)을 찾을 수 없어요.');
+      return;
+    }
+
+    // 비어있는 기본 행은 제거하고 가져오기
+    if(rows.length===1 && !rows[0].company && !rows[0].amount){
+      rows = [];
+    }
+
+    let added = 0;
+    for(let i=1;i<aoa.length;i++){
+      const r = aoa[i];
+      if(!r || !r[companyCol]) continue;
+      rows.push({
+        startDate: excelDateToStr(r[startCol]),
+        endDate: excelDateToStr(r[endCol]),
+        company: String(r[companyCol]),
+        rep:'', acct:'', bank:'',
+        amount: Number(r[amountCol]||0).toFixed(2),
+        settle:'', tax:''
+      });
+      added++;
+    }
+    applyAcctMap();
+    render();
+    autoSave();
+    alert(`${added}건의 데이터를 불러왔어요.`);
+  };
+  reader.readAsArrayBuffer(file);
+  document.getElementById('excelInput').value='';
+}
+
+function importAccountInfo(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+    if(aoa.length < 2){ alert('데이터가 없는 파일이에요.'); return; }
+
+    const header = aoa[0].map(h=>String(h||'').trim());
+    const repCol = header.findIndex(h=>h.includes('대표자'));
+    let acctCol = header.findIndex(h=>h.includes('계좌번호'));
+    if(acctCol===-1) acctCol = header.findIndex(h=>h.includes('계좌'));
+    let bankCol = header.findIndex(h=>h.includes('은행명'));
+    if(bankCol===-1) bankCol = header.findIndex(h=>h.includes('은행'));
+
+    if(repCol===-1||acctCol===-1||bankCol===-1){
+      alert('필요한 컬럼(대표자/계좌번호/은행)을 찾을 수 없어요.');
+      return;
+    }
+
+    // 정산현황표와 같은 행 순서라고 가정하고 순서대로 매칭
+    let updated = 0, addedNew = 0;
+    for(let i=1;i<aoa.length;i++){
+      const r = aoa[i];
+      const rep = String(r[repCol]||'');
+      const acct = String(r[acctCol]||'');
+      const bank = String(r[bankCol]||'');
+      if(!rep && !acct && !bank) continue;
+
+      const idx = i-1;
+      if(rows[idx]){
+        rows[idx].rep = rep;
+        rows[idx].acct = acct;
+        rows[idx].bank = bank;
+        if(rows[idx].company) acctMap[rows[idx].company] = {rep, acct, bank};
+        updated++;
+      } else {
+        rows.push({startDate:today,endDate:today,company:'',rep,acct,bank,amount:'',settle:'',tax:''});
+        addedNew++;
+      }
+    }
+    localStorage.setItem('settle_acctmap', JSON.stringify(acctMap));
+    applyAcctMap();
+    render();
+    autoSave();
+    alert(`${updated}건의 계좌정보를 갱신했고, ${addedNew}건을 새 행으로 추가했어요.`);
+  };
+  reader.readAsArrayBuffer(file);
+  document.getElementById('acctInput').value='';
+}
+
+function exportCSV(){
+  const headers=['정산시작일','정산종료일','소속협력사','대표자','계좌','은행','이체금액','정산현황','세금계산서발행'];
+  const lines=['\uFEFF'+headers.join(',')];
+  rows.forEach(r=>lines.push([r.startDate,r.endDate,'"'+r.company+'"','"'+r.rep+'"','"'+r.acct+'"','"'+r.bank+'"',r.amount,r.settle,r.tax].join(',')));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='정산현황_'+today+'.csv';a.click();
+}
+
+function initColResize(){
+  const cols = document.querySelectorAll('#tbl colgroup col');
+  const ths = document.querySelectorAll('#headRow th');
+  const saved = JSON.parse(localStorage.getItem('settle_colwidths')||'null');
+  if(saved){
+    cols.forEach((col,i)=>{ if(saved[i]) col.style.width = saved[i]+'px'; });
+  }
+  ths.forEach((th,i)=>{
+    if(i>=cols.length-1) return; // 마지막(삭제) 컬럼은 크기 조절 제외
+    const resizer = document.createElement('span');
+    resizer.className = 'col-resizer';
+    th.appendChild(resizer);
+    resizer.addEventListener('mousedown', (e)=>{
+      e.preventDefault();
+      const startX = e.pageX;
+      const startW = cols[i].getBoundingClientRect().width;
+      resizer.classList.add('active');
+      function onMove(ev){
+        const w = Math.max(30, startW + (ev.pageX - startX));
+        cols[i].style.width = w+'px';
+      }
+      function onUp(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        resizer.classList.remove('active');
+        const widths = Array.from(cols).map(c=>c.getBoundingClientRect().width);
+        localStorage.setItem('settle_colwidths', JSON.stringify(widths));
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+applyAcctMap();
+render();
+initColResize();
+</script>
+</body>
+</html>
