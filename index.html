@@ -124,8 +124,8 @@
     <i class="ti ti-lock"></i>
     <h2>정산 현황 관리</h2>
     <p>계정으로 로그인하세요</p>
-    <input type="email" id="emailInput" placeholder="이메일" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('pwInput').focus()">
-    <input type="password" id="pwInput" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <input type="email" id="emailInput" placeholder="이메일" autocomplete="email" autocorrect="off" autocapitalize="none" spellcheck="false" onkeydown="if(event.key==='Enter')document.getElementById('pwInput').focus()">
+    <input type="password" id="pwInput" placeholder="비밀번호" autocomplete="current-password" autocorrect="off" autocapitalize="none" spellcheck="false" onkeydown="if(event.key==='Enter')doLogin()">
     <button id="loginBtn" onclick="doLogin()">로그인</button>
     <div class="lock-error" id="pwError"></div>
   </div>
