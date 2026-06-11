@@ -67,10 +67,6 @@
   #filterPanel .fp-buttons button.primary{background:#6B8CAE;color:#fff;border-color:#6B8CAE}
   tbody tr:last-child td{border-bottom:none}
   tbody tr:hover td{background:#F4F8FC}
-  tr.row-ju td{background:#FAF5FF}
-  tr.row-ju:hover td{background:#F3E8FF}
-  tr.row-il td{background:#D5E9FA}
-  tr.row-il:hover td{background:#C7E0FA}
   .editable{background:transparent;border:none;outline:none;font-size:13px;color:#1E2D3D;width:100%;font-family:inherit;padding:3px 5px;border-radius:5px}
   .editable:focus{background:#E2EBF4;outline:2px solid #6B8CAE;outline-offset:-1px}
   input[type="date"].editable{min-width:100px;cursor:pointer}
@@ -531,7 +527,7 @@ function rowHtml(r,i){
       <td><input class="editable" placeholder="계좌번호" value="${r.acct}" oninput="rows[${i}].acct=this.value;autoSave()" style="min-width:140px"></td>
       <td><input class="editable" placeholder="은행명" value="${r.bank}" oninput="rows[${i}].bank=this.value;autoSave()" style="min-width:80px"></td>
       <td>
-        <select class="status-sel ${settleTypeClass(r.settleType)}" onchange="rows[${i}].settleType=this.value;this.className='status-sel '+settleTypeClass(this.value);const _t=this.closest('tr');_t.classList.toggle('row-ju',this.value==='주정산');_t.classList.toggle('row-il',this.value==='일선정산');autoSave()">
+        <select class="status-sel ${settleTypeClass(r.settleType)}" onchange="rows[${i}].settleType=this.value;this.className='status-sel '+settleTypeClass(this.value);autoSave()">
           <option value="" ${!r.settleType?'selected':''}>-</option>
           <option value="일선정산" ${r.settleType==='일선정산'?'selected':''}>일선정산</option>
           <option value="주정산" ${r.settleType==='주정산'?'selected':''}>주정산</option>
@@ -619,8 +615,6 @@ function render(){
           subIndices.forEach(i=>{
             const tr = document.createElement('tr');
             tr.dataset.idx = i;
-            if(rows[i].settleType==='주정산')  tr.classList.add('row-ju');
-          if(rows[i].settleType==='일선정산') tr.classList.add('row-il');
             tr.innerHTML = rowHtml(rows[i], i);
             tb.appendChild(tr);
           });
