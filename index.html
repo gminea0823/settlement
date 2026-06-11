@@ -79,6 +79,14 @@
   select.none{background:#E6EEF5;color:#8094A8;border-color:#C7D6E5}
   select.type-il{background:#E3F2FD;color:#1565C0;border-color:#42A5F5}
   select.type-ju{background:#F3E5F5;color:#6A1B9A;border-color:#AB47BC}
+  .search-bar{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
+  .search-bar select{padding:7px 10px;border:0.5px solid #C7D6E5;border-radius:8px;font-size:13px;color:#1E2D3D;background:#fff;cursor:pointer;font-family:inherit;outline:none}
+  .search-bar input[type="text"]{flex:1;max-width:320px;padding:7px 12px;border:0.5px solid #C7D6E5;border-radius:8px;font-size:13px;color:#1E2D3D;background:#fff;outline:none;font-family:inherit}
+  .search-bar input[type="text"]:focus{border-color:#6B8CAE;box-shadow:0 0 0 2px rgba(107,140,174,.15)}
+  .search-bar .search-clear{background:none;border:none;cursor:pointer;color:#A9BDD1;font-size:15px;padding:4px 6px;border-radius:5px;display:none}
+  .search-bar .search-clear:hover{color:#E24B4A}
+  .search-bar .search-clear.visible{display:inline-flex;align-items:center}
+  .search-result-tag{font-size:12px;color:#6B8CAE;white-space:nowrap}
   .sec-btn{background:none;border:0.5px solid #B8CEDF;border-radius:5px;font-size:11px;padding:2px 8px;cursor:pointer;color:#7C8FA6;font-family:inherit;white-space:nowrap}
   .sec-btn:hover{background:#fff;color:#1E2D3D;border-color:#6B8CAE}
   .subgroup-header td{overflow:visible}
@@ -126,6 +134,8 @@
     .sec-btn:hover{background:#2A3A4A;color:#DBE6F0;border-color:#6B8CAE}
     .toolbar button{background:#1F2937;color:#DBE6F0;border-color:#34465C}
     .toolbar button:hover{background:#2A3A4A}
+    .search-bar select,.search-bar input[type="text"]{background:#1F2937;color:#DBE6F0;border-color:#34465C}
+    .search-bar input[type="text"]:focus{border-color:#6B8CAE}
   }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
@@ -152,6 +162,17 @@
     <button onclick="document.getElementById('acctInput').click()"><i class="ti ti-building-bank"></i> 계좌정보 업로드</button>
     <input type="file" id="acctInput" accept=".xlsx,.xls" style="display:none" onchange="importAccountInfo(this.files[0])">
     <button onclick="exportCSV()"><i class="ti ti-download"></i> CSV 저장</button>
+  </div>
+
+  <div class="search-bar">
+    <i class="ti ti-search" style="color:#A9BDD1;font-size:16px"></i>
+    <select id="searchField" onchange="doSearch()">
+      <option value="company">협력사별</option>
+      <option value="rep">대표자별</option>
+    </select>
+    <input type="text" id="searchInput" placeholder="검색어를 입력하세요" oninput="doSearch()">
+    <button class="search-clear" id="searchClear" onclick="clearSearch()" title="검색 초기화"><i class="ti ti-x"></i></button>
+    <span class="search-result-tag" id="searchResultTag"></span>
   </div>
 
   <div class="tbl-wrap">
@@ -238,8 +259,14 @@ const FILTER_COLS = {
 };
 
 let columnFilters = {}; // key -> Set of allowed raw values (없으면 전체 허용)
+let searchQuery = '';
+let searchField = 'company';
 
 function matchesFilters(r){
+  if(searchQuery){
+    const val = (r[searchField]||'').toLowerCase();
+    if(!val.includes(searchQuery.toLowerCase())) return false;
+  }
   for(const key in columnFilters){
     if(!columnFilters[key].has(r[key]||'')) return false;
   }
@@ -327,6 +354,26 @@ function fpSelectAll(key,checked){
 
 function closeFilterPanel(){
   document.getElementById('filterPanel').classList.remove('open');
+}
+
+function doSearch(){
+  searchQuery = document.getElementById('searchInput').value.trim();
+  searchField = document.getElementById('searchField').value;
+  const clearBtn = document.getElementById('searchClear');
+  const tag = document.getElementById('searchResultTag');
+  clearBtn.classList.toggle('visible', searchQuery.length > 0);
+  if(!searchQuery){ tag.textContent = ''; render(); return; }
+  render();
+  const matchCount = rows.filter(r=>matchesFilters(r)).length;
+  tag.textContent = `${matchCount}건`;
+}
+
+function clearSearch(){
+  document.getElementById('searchInput').value = '';
+  searchQuery = '';
+  document.getElementById('searchClear').classList.remove('visible');
+  document.getElementById('searchResultTag').textContent = '';
+  render();
 }
 
 function applyFilter(key){
