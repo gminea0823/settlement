@@ -507,7 +507,7 @@ function render(){
 
         const subHeaderTr = document.createElement('tr');
         subHeaderTr.className = 'subgroup-header' + (subCollapsed ? ' collapsed' : '');
-        subHeaderTr.innerHTML = `<td colspan="12" onclick="toggleSubGroup('${escapedSubKey}')"><div style="display:flex;align-items:center;gap:6px"><i class="ti ti-chevron-down sub-ti"></i>${label}<span class="group-count">${subIndices.length}건</span><span style="margin-left:auto;display:flex;gap:4px"><button class="sec-btn" onclick="event.stopPropagation();setSectionTarget([${subIndices.join(',')}],'${first.startDate}','${first.endDate}');document.getElementById('excelInput').click()" title="이 구간 엑셀 업로드"><i class="ti ti-file-spreadsheet" style="font-size:11px"></i> 엑셀 업로드</button><button class="sec-btn" onclick="event.stopPropagation();setSectionTarget([${subIndices.join(',')}]);document.getElementById('acctInput').click()" title="이 구간 계좌정보 업로드"><i class="ti ti-building-bank" style="font-size:11px"></i> 계좌 업로드</button><button class="sec-btn" onclick="event.stopPropagation();resetSectionExcel([${subIndices.join(',')}])" title="이 구간 협력사·이체금액·정산일 초기화"><i class="ti ti-eraser" style="font-size:11px"></i> 초기화</button><button class="sec-btn" onclick="event.stopPropagation();resetSectionAcct([${subIndices.join(',')}])" title="이 구간 대표자·계좌·은행 초기화"><i class="ti ti-trash" style="font-size:11px"></i> 계좌 초기화</button></span></div></td>`;
+        subHeaderTr.innerHTML = `<td colspan="12" onclick="toggleSubGroup('${escapedSubKey}')"><div style="display:flex;align-items:center;gap:6px"><i class="ti ti-chevron-down sub-ti"></i>${label}<span class="group-count">${subIndices.length}건</span><span style="margin-left:auto;display:flex;gap:4px"><button class="sec-btn" onclick="event.stopPropagation();setSectionTarget([${subIndices.join(',')}],'${first.startDate}','${first.endDate}');document.getElementById('excelInput').click()" title="이 구간 엑셀 업로드"><i class="ti ti-file-spreadsheet" style="font-size:11px"></i> 엑셀 업로드</button><button class="sec-btn" onclick="event.stopPropagation();setSectionTarget([${subIndices.join(',')}]);document.getElementById('acctInput').click()" title="이 구간 계좌정보 업로드"><i class="ti ti-building-bank" style="font-size:11px"></i> 계좌 업로드</button><button class="sec-btn" onclick="event.stopPropagation();resetSectionExcel([${subIndices.join(',')}])" title="이 구간 협력사·이체금액·정산일 초기화"><i class="ti ti-eraser" style="font-size:11px"></i> 초기화</button><button class="sec-btn" onclick="event.stopPropagation();resetSectionAcct([${subIndices.join(',')}])" title="이 구간 대표자·계좌·은행 초기화"><i class="ti ti-trash" style="font-size:11px"></i> 계좌 초기화</button><button class="sec-btn" style="color:#E24B4A;border-color:#F5C0BF" onclick="event.stopPropagation();deleteSectionRows([${subIndices.join(',')}])" title="이 구간 행 전체 삭제"><i class="ti ti-trash-x" style="font-size:11px"></i> 전체 삭제</button></span></div></td>`;
         tb.appendChild(subHeaderTr);
 
         if(!subCollapsed){
@@ -559,6 +559,14 @@ function resetSectionExcel(indices){
 function resetSectionAcct(indices){
   if(!confirm(`이 구간 ${indices.length}건의 대표자·계좌번호·은행을 초기화할까요?`)) return;
   indices.forEach(i=>{ rows[i].rep=''; rows[i].acct=''; rows[i].bank=''; });
+  autoSave(); render();
+}
+
+function deleteSectionRows(indices){
+  if(!confirm(`이 구간 ${indices.length}건을 모두 삭제할까요?\n되돌릴 수 없어요.`)) return;
+  const idxSet = new Set(indices);
+  rows = rows.filter((_,i)=>!idxSet.has(i));
+  if(rows.length===0) rows.push({startDate:today,endDate:today,company:'',rep:'',acct:'',bank:'',settleType:'',amount:'',settle:'',tax:''});
   autoSave(); render();
 }
 
