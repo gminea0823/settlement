@@ -68,6 +68,8 @@
   tbody tr:hover td{background:#F4F8FC}
   tr.row-ju td{background:#FAF5FF}
   tr.row-ju:hover td{background:#F3E8FF}
+  tr.row-il td{background:#EFF6FF}
+  tr.row-il:hover td{background:#DBEAFE}
   .editable{background:transparent;border:none;outline:none;font-size:13px;color:#1E2D3D;width:100%;font-family:inherit;padding:3px 5px;border-radius:5px}
   .editable:focus{background:#E2EBF4;outline:2px solid #6B8CAE;outline-offset:-1px}
   input[type="date"].editable{min-width:120px;cursor:pointer}
@@ -100,6 +102,8 @@
     tbody tr:hover td{background:#1B2530}
     tr.row-ju td{background:#1E1530}
     tr.row-ju:hover td{background:#261B3A}
+    tr.row-il td{background:#0F1E35}
+    tr.row-il:hover td{background:#162440}
     td{border-color:#2A3A4A}
     th{color:#7E93AA}
     .group-header td{background:#1E2C3B}
@@ -355,8 +359,13 @@ function buildAcctLookup(){
   // acctMap(계좌정보 업로드) + 기존 행에 직접 입력된 데이터를 합산
   const map = Object.assign({}, acctMap);
   rows.forEach(r=>{
-    if(r.company && (r.rep||r.acct||r.bank)){
-      map[r.company] = {rep:r.rep, acct:r.acct, bank:r.bank};
+    if(r.company && (r.rep||r.acct||r.bank||r.settleType)){
+      map[r.company] = {
+        rep:        r.rep        || (map[r.company]||{}).rep        || '',
+        acct:       r.acct       || (map[r.company]||{}).acct       || '',
+        bank:       r.bank       || (map[r.company]||{}).bank       || '',
+        settleType: r.settleType || (map[r.company]||{}).settleType || ''
+      };
     }
   });
   return map;
@@ -372,14 +381,16 @@ function applyAcctMap(){
   });
 }
 
-// 엑셀 업로드 후 자동완성: rep/acct/bank 가 비어있는 행만 채움
+// 엑셀 업로드 후 자동완성: 비어있는 필드만 채움
 function autoFillNewRows(){
   const map = buildAcctLookup();
   rows.forEach(r=>{
-    if(r.company && map[r.company] && !r.rep && !r.acct && !r.bank){
-      r.rep = map[r.company].rep;
-      r.acct = map[r.company].acct;
-      r.bank = map[r.company].bank;
+    if(r.company && map[r.company]){
+      const m = map[r.company];
+      if(!r.rep && !r.acct && !r.bank){
+        r.rep = m.rep; r.acct = m.acct; r.bank = m.bank;
+      }
+      if(!r.settleType && m.settleType) r.settleType = m.settleType;
     }
   });
 }
@@ -388,9 +399,9 @@ function onCompanyBlur(i){
   const company = rows[i].company;
   const map = buildAcctLookup();
   if(company && map[company]){
-    rows[i].rep = map[company].rep;
-    rows[i].acct = map[company].acct;
-    rows[i].bank = map[company].bank;
+    const m = map[company];
+    rows[i].rep = m.rep; rows[i].acct = m.acct; rows[i].bank = m.bank;
+    if(!rows[i].settleType && m.settleType) rows[i].settleType = m.settleType;
     autoSave();
     render();
   }
@@ -438,7 +449,7 @@ function rowHtml(r,i){
       <td><input class="editable" placeholder="계좌번호" value="${r.acct}" oninput="rows[${i}].acct=this.value;autoSave()" style="min-width:140px"></td>
       <td><input class="editable" placeholder="은행명" value="${r.bank}" oninput="rows[${i}].bank=this.value;autoSave()" style="min-width:80px"></td>
       <td>
-        <select class="status-sel ${settleTypeClass(r.settleType)}" onchange="rows[${i}].settleType=this.value;this.className='status-sel '+settleTypeClass(this.value);this.closest('tr').classList.toggle('row-ju',this.value==='주정산');autoSave()">
+        <select class="status-sel ${settleTypeClass(r.settleType)}" onchange="rows[${i}].settleType=this.value;this.className='status-sel '+settleTypeClass(this.value);const _t=this.closest('tr');_t.classList.toggle('row-ju',this.value==='주정산');_t.classList.toggle('row-il',this.value==='일선정산');autoSave()">
           <option value="" ${!r.settleType?'selected':''}>-</option>
           <option value="일선정산" ${r.settleType==='일선정산'?'selected':''}>일선정산</option>
           <option value="주정산" ${r.settleType==='주정산'?'selected':''}>주정산</option>
@@ -526,7 +537,8 @@ function render(){
           subIndices.forEach(i=>{
             const tr = document.createElement('tr');
             tr.dataset.idx = i;
-            if(rows[i].settleType==='주정산') tr.classList.add('row-ju');
+            if(rows[i].settleType==='주정산')  tr.classList.add('row-ju');
+          if(rows[i].settleType==='일선정산') tr.classList.add('row-il');
             tr.innerHTML = rowHtml(rows[i], i);
             tb.appendChild(tr);
           });
