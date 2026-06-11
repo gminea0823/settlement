@@ -10,6 +10,10 @@
   .topbar{background:#fff;border-bottom:0.5px solid #D7E2EE;padding:0 2rem;height:56px;display:flex;align-items:center;gap:10px}
   .topbar h1{font-size:16px;font-weight:500}
   .topbar i{font-size:18px;color:#6B8CAE}
+  .save-status{margin-left:auto;font-size:11px;color:#A9BDD1;display:flex;align-items:center;gap:4px;white-space:nowrap}
+  .save-status i{font-size:13px}
+  .save-status.saving{color:#BA7517}
+  .save-status.saved{color:#6B8CAE}
   .wrap{max-width:1300px;margin:0 auto;padding:1.5rem}
   .sub{font-size:13px;color:#7C8FA6;margin-bottom:1.25rem;margin-top:4px}
   .summary{display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap}
@@ -76,6 +80,9 @@
   }
   @media(prefers-color-scheme:dark){
     body{background:#141B24;color:#DBE6F0}
+    .save-status{color:#4A6070}
+    .save-status.saving{color:#BA7517}
+    .save-status.saved{color:#6B8CAE}
     .topbar,.stat,.tbl-wrap{background:#1F2937;border-color:#34465C}
     thead tr{background:#1B2530}
     .editable{color:#DBE6F0}
@@ -108,6 +115,7 @@
 <div class="topbar">
   <i class="ti ti-receipt-2"></i>
   <h1>정산 현황 관리</h1>
+  <div class="save-status" id="saveStatus"><i class="ti ti-cloud-check"></i><span>불러오는 중...</span></div>
 </div>
 
 <div class="wrap">
@@ -122,8 +130,6 @@
     <button onclick="document.getElementById('acctInput').click()"><i class="ti ti-building-bank"></i> 계좌정보 업로드</button>
     <input type="file" id="acctInput" accept=".xlsx,.xls" style="display:none" onchange="importAccountInfo(this.files[0])">
     <button onclick="exportCSV()"><i class="ti ti-download"></i> CSV 저장</button>
-    <button onclick="saveLocal()"><i class="ti ti-device-floppy"></i> 저장</button>
-    <button onclick="loadLocal()"><i class="ti ti-refresh"></i> 불러오기</button>
   </div>
 
   <div class="tbl-wrap">
@@ -481,16 +487,17 @@ function updateSummary(){
   const pending = total - done;
   const totalAmt = rows.reduce((s,r)=>s+(parseFloat(String(r.amount).replace(/[^0-9.\-]/g,''))||0),0);
   document.getElementById('summary').innerHTML = `
-    <div class="stat"><div class="stat-label">전체 건수</div><div class="stat-val">${total}건</div></div>
+    <div class="stat"><div class="stat-label">전체 건수</div><div class="stat-val amber">${total}건</div></div>
     <div class="stat"><div class="stat-label">정산 완료</div><div class="stat-val green">${done}건</div></div>
     <div class="stat"><div class="stat-label">정산 미완료</div><div class="stat-val amber">${pending}건</div></div>
-    <div class="stat"><div class="stat-label">총 이체금액</div><div class="stat-val">${totalAmt.toLocaleString()}원</div></div>
+    <div class="stat"><div class="stat-label">총 이체금액</div><div class="stat-val amber">${totalAmt.toLocaleString()}원</div></div>
   `;
 }
 
 function addRow(){
   const newIdx = rows.length;
   rows.push({startDate:today,endDate:today,company:'',rep:'',acct:'',bank:'',amount:'',settle:'',tax:''});
+  autoSave();
   render();
   setTimeout(()=>{
     const tr = document.querySelector(`#tbody tr[data-idx="${newIdx}"]`);
@@ -501,24 +508,37 @@ function addRow(){
 
 function delRow(i){
   if(rows.length<=1){alert('마지막 행은 삭제할 수 없어요.');return;}
-  if(confirm('이 행을 삭제할까요?')){rows.splice(i,1);render();}
+  if(confirm('이 행을 삭제할까요?')){rows.splice(i,1);autoSave();render();}
 }
 
 let autoTimer;
+function setSaveStatus(state){
+  const el = document.getElementById('saveStatus');
+  if(!el) return;
+  if(state==='saving'){
+    el.className='save-status saving';
+    el.innerHTML='<i class="ti ti-loader-2"></i><span>저장 중...</span>';
+  } else {
+    const now = new Date();
+    const t = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
+    el.className='save-status saved';
+    el.innerHTML='<i class="ti ti-cloud-check"></i><span>저장됨 '+t+'</span>';
+  }
+}
+
 function autoSave(){
+  setSaveStatus('saving');
   clearTimeout(autoTimer);
-  autoTimer = setTimeout(()=>localStorage.setItem('settle_rows',JSON.stringify(rows)),800);
+  autoTimer = setTimeout(()=>{
+    localStorage.setItem('settle_rows',JSON.stringify(rows));
+    setSaveStatus('saved');
+  }, 400);
 }
 
-function saveLocal(){
+function forceSave(){
+  clearTimeout(autoTimer);
   localStorage.setItem('settle_rows',JSON.stringify(rows));
-  alert('저장되었어요! 다음에 이 파일을 열면 자동으로 불러와요.');
-}
-
-function loadLocal(){
-  const d = localStorage.getItem('settle_rows');
-  if(d){rows=JSON.parse(d);render();alert('불러왔어요!');}
-  else alert('저장된 데이터가 없어요.');
+  setSaveStatus('saved');
 }
 
 function excelDateToStr(v){
@@ -684,6 +704,9 @@ function initColResize(){
 applyAcctMap();
 render();
 initColResize();
+setSaveStatus('saved');
+
+window.addEventListener('beforeunload', forceSave);
 </script>
 </body>
 </html>
