@@ -224,7 +224,7 @@ async function doLogin(){
   btn.textContent = '로그인 중...'; btn.disabled = true; errEl.textContent = '';
   const { error } = await sb.auth.signInWithPassword({ email, password: pw });
   if(error){
-    errEl.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.';
+    errEl.textContent = '[오류] ' + error.message;
     document.getElementById('pwInput').value = '';
     document.getElementById('pwInput').focus();
     btn.textContent = '로그인'; btn.disabled = false;
