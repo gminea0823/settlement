@@ -109,6 +109,9 @@
   .lock-box button{width:100%;padding:11px;border-radius:8px;background:#6B8CAE;color:#fff;border:none;font-size:14px;font-family:inherit;cursor:pointer;font-weight:500;transition:background .15s}
   .lock-box button:hover{background:#51718F}
   .lock-error{font-size:12px;color:#C0392B;margin-top:8px;min-height:18px}
+  .lock-box button:disabled{background:#A9BDD1;cursor:not-allowed}
+  .logout-btn{background:none;border:none;cursor:pointer;color:#A9BDD1;font-size:20px;padding:4px 8px;border-radius:6px;transition:all .15s;display:none;align-items:center}
+  .logout-btn:hover{background:#F4F8FC;color:#6B8CAE}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -120,9 +123,10 @@
   <div class="lock-box">
     <i class="ti ti-lock"></i>
     <h2>정산 현황 관리</h2>
-    <p>접근하려면 비밀번호를 입력하세요</p>
-    <input type="password" id="pwInput" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
-    <button onclick="doLogin()">확인</button>
+    <p>계정으로 로그인하세요</p>
+    <input type="email" id="emailInput" placeholder="이메일" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('pwInput').focus()">
+    <input type="password" id="pwInput" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button id="loginBtn" onclick="doLogin()">로그인</button>
     <div class="lock-error" id="pwError"></div>
   </div>
 </div>
@@ -131,6 +135,7 @@
   <i class="ti ti-receipt-2"></i>
   <h1>정산 현황 관리</h1>
   <div class="save-status" id="saveStatus"><i class="ti ti-cloud-check"></i><span>불러오는 중...</span></div>
+  <button class="logout-btn" id="logoutBtn" onclick="doLogout()" title="로그아웃"><i class="ti ti-logout"></i></button>
 </div>
 
 <div class="wrap">
@@ -197,33 +202,6 @@
 </div>
 
 <script>
-// ── 비밀번호 잠금 ────────────────────────────────────────────
-const _PW_HASH = '4cfc2ff6068749e2af64c1fe5febc86134c618a874e020079780fbafaa1e76a5';
-async function _sha256(str){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-async function doLogin(){
-  const val = document.getElementById('pwInput').value;
-  const h = await _sha256(val);
-  if(h === _PW_HASH){
-    sessionStorage.setItem('settle_auth','1');
-    document.getElementById('lockScreen').style.display='none';
-  } else {
-    document.getElementById('pwError').textContent='비밀번호가 올바르지 않습니다.';
-    document.getElementById('pwInput').value='';
-    document.getElementById('pwInput').focus();
-  }
-}
-(function(){
-  if(sessionStorage.getItem('settle_auth')==='1'){
-    document.getElementById('lockScreen').style.display='none';
-  } else {
-    setTimeout(()=>document.getElementById('pwInput').focus(), 50);
-  }
-})();
-// ─────────────────────────────────────────────────────────────
-
 const today = new Date().toISOString().split('T')[0];
 
 // ── Supabase ──────────────────────────────────────────────
@@ -232,6 +210,53 @@ const _SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const _RECORD  = 'main';
 const sb = supabase.createClient(_SB_URL, _SB_KEY);
 // ─────────────────────────────────────────────────────────
+
+// ── 인증 (Supabase Auth) ─────────────────────────────────────
+let _appInited = false;
+function _maybeInit(){ if(_appInited) return; _appInited = true; init(); }
+
+async function doLogin(){
+  const email = document.getElementById('emailInput').value.trim();
+  const pw    = document.getElementById('pwInput').value;
+  const btn   = document.getElementById('loginBtn');
+  const errEl = document.getElementById('pwError');
+  if(!email || !pw){ errEl.textContent = '이메일과 비밀번호를 입력하세요.'; return; }
+  btn.textContent = '로그인 중...'; btn.disabled = true; errEl.textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if(error){
+    errEl.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.';
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwInput').focus();
+    btn.textContent = '로그인'; btn.disabled = false;
+  }
+}
+
+async function doLogout(){
+  if(!confirm('로그아웃 하시겠습니까?')) return;
+  await sb.auth.signOut();
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if(session){
+    document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('logoutBtn').style.display  = 'flex';
+    _maybeInit();
+  } else {
+    document.getElementById('lockScreen').style.display = 'flex';
+    document.getElementById('logoutBtn').style.display  = 'none';
+    document.getElementById('loginBtn').textContent = '로그인';
+    document.getElementById('loginBtn').disabled    = false;
+    document.getElementById('pwError').textContent  = '';
+    document.getElementById('pwInput').value        = '';
+    setTimeout(()=>document.getElementById('emailInput').focus(), 50);
+  }
+});
+
+sb.auth.getSession().then(({ data:{ session } })=>{
+  if(session){ _maybeInit(); }
+  else { setTimeout(()=>document.getElementById('emailInput').focus(), 50); }
+});
+// ─────────────────────────────────────────────────────────────
 
 // localStorage로 즉시 초기 렌더링 (Supabase 로드 전 빠른 표시)
 let rows = JSON.parse(localStorage.getItem('settle_rows') || 'null') || [
@@ -991,8 +1016,6 @@ function initColResize(){
 }
 
 window.addEventListener('beforeunload', forceSave);
-
-init();
 </script>
 </body>
 </html>
