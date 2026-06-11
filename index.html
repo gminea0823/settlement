@@ -39,7 +39,10 @@
   .group-header .ti{margin-right:6px;display:inline-block;transition:transform .15s}
   .group-header.collapsed .ti{transform:rotate(-90deg)}
   .group-count{color:#7C8FA6;font-weight:400;font-size:12px;margin-left:8px}
-  .subgroup-header td{background:#F0F5FA;font-weight:500;color:#8095AC;font-size:12px;padding:6px 10px;border-bottom:0.5px solid #E6EEF6}
+  .subgroup-header td{background:#F0F5FA;font-weight:500;color:#8095AC;font-size:12px;padding:6px 10px;border-bottom:0.5px solid #E6EEF6;cursor:pointer}
+  .subgroup-header:hover td{background:#E5EEF5}
+  .subgroup-header .sub-ti{display:inline-block;transition:transform .15s;margin-right:4px;font-size:12px}
+  .subgroup-header.collapsed .sub-ti{transform:rotate(-90deg)}
   .group-subtotal td{background:#E5EEF6;font-weight:600;border-bottom:0.5px solid #D7E2EE;color:#1E2D3D}
   .group-subtotal .subtotal-label{text-align:right;color:#7C8FA6;font-weight:500}
   .group-subtotal .subtotal-amt{text-align:right}
@@ -102,6 +105,7 @@
     .group-header td{background:#1E2C3B}
     .group-header:hover td{background:#243446}
     .subgroup-header td{background:#18222D;color:#7E93AA}
+    .subgroup-header:hover td{background:#1E2C3B}
     .group-subtotal td{background:#1E2C3B;color:#DBE6F0}
     th .filter-btn:hover{background:#2A3A4A;color:#DBE6F0}
     #filterPanel{background:#1F2937;border-color:#34465C;color:#DBE6F0}
@@ -198,6 +202,7 @@ rows.forEach(r=>{
 });
 
 let collapsedGroups = JSON.parse(localStorage.getItem('settle_collapsed') || '[]');
+let collapsedSubGroups = JSON.parse(localStorage.getItem('settle_sub_collapsed') || '[]');
 let acctMap = JSON.parse(localStorage.getItem('settle_acctmap') || '{}');
 let sectionTarget = null;
 function setSectionTarget(indices, startDate, endDate){
@@ -380,6 +385,13 @@ function toggleGroup(key){
   render();
 }
 
+function toggleSubGroup(key){
+  const idx = collapsedSubGroups.indexOf(key);
+  if(idx>=0) collapsedSubGroups.splice(idx,1); else collapsedSubGroups.push(key);
+  localStorage.setItem('settle_sub_collapsed', JSON.stringify(collapsedSubGroups));
+  render();
+}
+
 function rowHtml(r,i){
   return `
       <td class="row-num">${i+1}</td>
@@ -466,25 +478,29 @@ function render(){
         const subIndices = subGroups[subKey];
         const first = rows[subIndices[0]];
         const label = dateRangeLabel(first.startDate, first.endDate);
+        const subCollapsed = collapsedSubGroups.includes(subKey);
+        const escapedSubKey = subKey.replace(/'/g,"\\'");
 
         const subHeaderTr = document.createElement('tr');
-        subHeaderTr.className = 'subgroup-header';
-        subHeaderTr.innerHTML = `<td colspan="12"><div style="display:flex;align-items:center;gap:6px">${label}<span class="group-count">${subIndices.length}건</span><span style="margin-left:auto;display:flex;gap:4px"><button class="sec-btn" onclick="setSectionTarget([${subIndices.join(',')}],'${first.startDate}','${first.endDate}');document.getElementById('excelInput').click()" title="이 구간 엑셀 업로드"><i class="ti ti-file-spreadsheet" style="font-size:11px"></i> 엑셀 업로드</button><button class="sec-btn" onclick="setSectionTarget([${subIndices.join(',')}]);document.getElementById('acctInput').click()" title="이 구간 계좌정보 업로드"><i class="ti ti-building-bank" style="font-size:11px"></i> 계좌 업로드</button><button class="sec-btn" onclick="resetSectionExcel([${subIndices.join(',')}])" title="이 구간 협력사·이체금액·정산일 초기화"><i class="ti ti-eraser" style="font-size:11px"></i> 초기화</button><button class="sec-btn" onclick="resetSectionAcct([${subIndices.join(',')}])" title="이 구간 대표자·계좌·은행 초기화"><i class="ti ti-trash" style="font-size:11px"></i> 계좌 초기화</button></span></div></td>`;
+        subHeaderTr.className = 'subgroup-header' + (subCollapsed ? ' collapsed' : '');
+        subHeaderTr.innerHTML = `<td colspan="12" onclick="toggleSubGroup('${escapedSubKey}')"><div style="display:flex;align-items:center;gap:6px"><i class="ti ti-chevron-down sub-ti"></i>${label}<span class="group-count">${subIndices.length}건</span><span style="margin-left:auto;display:flex;gap:4px"><button class="sec-btn" onclick="event.stopPropagation();setSectionTarget([${subIndices.join(',')}],'${first.startDate}','${first.endDate}');document.getElementById('excelInput').click()" title="이 구간 엑셀 업로드"><i class="ti ti-file-spreadsheet" style="font-size:11px"></i> 엑셀 업로드</button><button class="sec-btn" onclick="event.stopPropagation();setSectionTarget([${subIndices.join(',')}]);document.getElementById('acctInput').click()" title="이 구간 계좌정보 업로드"><i class="ti ti-building-bank" style="font-size:11px"></i> 계좌 업로드</button><button class="sec-btn" onclick="event.stopPropagation();resetSectionExcel([${subIndices.join(',')}])" title="이 구간 협력사·이체금액·정산일 초기화"><i class="ti ti-eraser" style="font-size:11px"></i> 초기화</button><button class="sec-btn" onclick="event.stopPropagation();resetSectionAcct([${subIndices.join(',')}])" title="이 구간 대표자·계좌·은행 초기화"><i class="ti ti-trash" style="font-size:11px"></i> 계좌 초기화</button></span></div></td>`;
         tb.appendChild(subHeaderTr);
 
-        subIndices.forEach(i=>{
-          const tr = document.createElement('tr');
-          tr.dataset.idx = i;
-          if(rows[i].settleType==='주정산') tr.classList.add('row-ju');
-          tr.innerHTML = rowHtml(rows[i], i);
-          tb.appendChild(tr);
-        });
+        if(!subCollapsed){
+          subIndices.forEach(i=>{
+            const tr = document.createElement('tr');
+            tr.dataset.idx = i;
+            if(rows[i].settleType==='주정산') tr.classList.add('row-ju');
+            tr.innerHTML = rowHtml(rows[i], i);
+            tb.appendChild(tr);
+          });
 
-        const subtotal = subIndices.reduce((s,i)=>s+(parseFloat(String(rows[i].amount).replace(/[^0-9.\-]/g,''))||0),0);
-        const subtotalTr = document.createElement('tr');
-        subtotalTr.className = 'group-subtotal';
-        subtotalTr.innerHTML = `<td colspan="8" class="subtotal-label">${label} 이체 합계</td><td class="subtotal-amt">${formatAmount(subtotal)}</td><td colspan="3"></td>`;
-        tb.appendChild(subtotalTr);
+          const subtotal = subIndices.reduce((s,i)=>s+(parseFloat(String(rows[i].amount).replace(/[^0-9.\-]/g,''))||0),0);
+          const subtotalTr = document.createElement('tr');
+          subtotalTr.className = 'group-subtotal';
+          subtotalTr.innerHTML = `<td colspan="8" class="subtotal-label">${label} 이체 합계</td><td class="subtotal-amt">${formatAmount(subtotal)}</td><td colspan="3"></td>`;
+          tb.appendChild(subtotalTr);
+        }
       });
     }
   });
