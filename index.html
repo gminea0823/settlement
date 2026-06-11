@@ -69,8 +69,8 @@
   tbody tr:hover td{background:#F4F8FC}
   tr.row-ju td{background:#FAF5FF}
   tr.row-ju:hover td{background:#F3E8FF}
-  tr.row-il td{background:#EFF6FF}
-  tr.row-il:hover td{background:#DBEAFE}
+  tr.row-il td{background:#C7E0FA}
+  tr.row-il:hover td{background:#B3D4F7}
   .editable{background:transparent;border:none;outline:none;font-size:13px;color:#1E2D3D;width:100%;font-family:inherit;padding:3px 5px;border-radius:5px}
   .editable:focus{background:#E2EBF4;outline:2px solid #6B8CAE;outline-offset:-1px}
   input[type="date"].editable{min-width:100px;cursor:pointer}
@@ -78,6 +78,8 @@
   select.done{background:#EAF3DE;color:#3B6D11;border-color:#639922}
   select.pending{background:#FAEEDA;color:#854F0B;border-color:#BA7517}
   select.none{background:#E6EEF5;color:#8094A8;border-color:#C7D6E5}
+  select.plain-sel{font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid #C7D6E5;cursor:pointer;font-family:inherit;outline:none;background:#fff;color:#1E2D3D;transition:border-color .15s}
+  select.plain-sel:focus{border-color:#6B8CAE}
   select.type-il{background:#E3F2FD;color:#1565C0;border-color:#42A5F5}
   select.type-ju{background:#F3E5F5;color:#6A1B9A;border-color:#AB47BC}
   .search-bar{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
@@ -466,17 +468,17 @@ function rowHtml(r,i){
       </td>
       <td><input class="editable amount-input" placeholder="0" value="${formatAmount(r.amount)}" onfocus="this.value=rows[${i}].amount" onblur="this.value=formatAmount(rows[${i}].amount)" oninput="rows[${i}].amount=this.value;autoSave();updateSummary()" style="min-width:110px"></td>
       <td>
-        <select class="status-sel ${statusClass(r.settle)}" onchange="rows[${i}].settle=this.value;this.className='status-sel '+statusClass(this.value);autoSave();updateSummary()">
+        <select class="plain-sel" onchange="rows[${i}].settle=this.value;autoSave();updateSummary()">
           <option value="" ${!r.settle?'selected':''}>-</option>
-          <option value="완료" ${r.settle==='완료'?'selected':''}>✓ 완료</option>
-          <option value="미완료" ${r.settle==='미완료'?'selected':''}>✗ 미완료</option>
+          <option value="완료" ${r.settle==='완료'?'selected':''}>완료</option>
+          <option value="미완료" ${r.settle==='미완료'?'selected':''}>미완료</option>
         </select>
       </td>
       <td>
-        <select class="status-sel ${statusClass(r.tax)}" onchange="rows[${i}].tax=this.value;this.className='status-sel '+statusClass(this.value);autoSave()">
+        <select class="plain-sel" onchange="rows[${i}].tax=this.value;autoSave()">
           <option value="" ${!r.tax?'selected':''}>-</option>
-          <option value="완료" ${r.tax==='완료'?'selected':''}>✓ 완료</option>
-          <option value="미완료" ${r.tax==='미완료'?'selected':''}>✗ 미완료</option>
+          <option value="완료" ${r.tax==='완료'?'selected':''}>완료</option>
+          <option value="미완료" ${r.tax==='미완료'?'selected':''}>미완료</option>
         </select>
       </td>
       <td><button class="del-btn" onclick="delRow(${i})" title="삭제">✕</button></td>
