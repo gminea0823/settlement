@@ -127,8 +127,10 @@
     <button class="primary" onclick="addRow()"><i class="ti ti-plus"></i> 행 추가</button>
     <button onclick="document.getElementById('excelInput').click()"><i class="ti ti-file-spreadsheet"></i> 엑셀 업로드</button>
     <input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this.files[0])">
+    <button onclick="resetExcelFields()" title="엑셀에서 불러온 협력사·이체금액·정산일을 초기화합니다"><i class="ti ti-eraser"></i> 엑셀 데이터 초기화</button>
     <button onclick="document.getElementById('acctInput').click()"><i class="ti ti-building-bank"></i> 계좌정보 업로드</button>
     <input type="file" id="acctInput" accept=".xlsx,.xls" style="display:none" onchange="importAccountInfo(this.files[0])">
+    <button onclick="resetAccountFields()" title="모든 행의 대표자·계좌번호·은행을 초기화합니다"><i class="ti ti-trash"></i> 계좌정보 초기화</button>
     <button onclick="exportCSV()"><i class="ti ti-download"></i> CSV 저장</button>
   </div>
 
@@ -656,6 +658,27 @@ function importAccountInfo(file){
   };
   reader.readAsArrayBuffer(file);
   document.getElementById('acctInput').value='';
+}
+
+function resetExcelFields(){
+  if(!confirm('모든 행의 협력사명·이체금액·정산시작일·정산종료일을 초기화할까요?\n(대표자·계좌·은행·정산현황은 유지됩니다)')) return;
+  rows.forEach(r=>{
+    r.company = '';
+    r.amount = '';
+    r.startDate = today;
+    r.endDate = today;
+  });
+  autoSave();
+  render();
+}
+
+function resetAccountFields(){
+  if(!confirm('모든 행의 대표자·계좌번호·은행을 초기화할까요?')) return;
+  rows.forEach(r=>{ r.rep=''; r.acct=''; r.bank=''; });
+  acctMap = {};
+  localStorage.setItem('settle_acctmap', JSON.stringify(acctMap));
+  autoSave();
+  render();
 }
 
 function exportCSV(){
