@@ -126,6 +126,7 @@
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -190,20 +191,31 @@
 <script>
 const today = new Date().toISOString().split('T')[0];
 
+// ── Supabase ──────────────────────────────────────────────
+const _SB_URL  = 'https://micquonnaxyhwxwksctf.supabase.co';
+const _SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pY3F1b25uYXh5aHd4d2tzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMTY0MDgsImV4cCI6MjA5NjY5MjQwOH0.9S0DhscVBWUw1nerK5weF5GMoJaTTZHLtL91yOaqHR0';
+const _RECORD  = 'main';
+const sb = supabase.createClient(_SB_URL, _SB_KEY);
+// ─────────────────────────────────────────────────────────
+
+// localStorage로 즉시 초기 렌더링 (Supabase 로드 전 빠른 표시)
 let rows = JSON.parse(localStorage.getItem('settle_rows') || 'null') || [
   {startDate:today,endDate:today,company:'',rep:'',acct:'',bank:'',settleType:'',amount:'',settle:'',tax:''}
 ];
-rows.forEach(r=>{
-  if(r.startDate===undefined) r.startDate = r.date || today;
-  if(r.endDate===undefined) r.endDate = r.date || today;
-  if(r.settle==='미완료') r.settle = '';
-  if(r.tax==='미완료') r.tax = '';
-  if(r.settleType===undefined) r.settleType = '';
-});
+function migrateRows(arr){
+  arr.forEach(r=>{
+    if(r.startDate===undefined) r.startDate = r.date || today;
+    if(r.endDate===undefined) r.endDate = r.date || today;
+    if(r.settle==='미완료') r.settle = '';
+    if(r.tax==='미완료') r.tax = '';
+    if(r.settleType===undefined) r.settleType = '';
+  });
+}
+migrateRows(rows);
 
-let collapsedGroups = JSON.parse(localStorage.getItem('settle_collapsed') || '[]');
+let collapsedGroups    = JSON.parse(localStorage.getItem('settle_collapsed')     || '[]');
 let collapsedSubGroups = JSON.parse(localStorage.getItem('settle_sub_collapsed') || '[]');
-let acctMap = JSON.parse(localStorage.getItem('settle_acctmap') || '{}');
+let acctMap            = JSON.parse(localStorage.getItem('settle_acctmap')       || '{}');
 let sectionTarget = null;
 function setSectionTarget(indices, startDate, endDate){
   sectionTarget = {indices, startDate: startDate||today, endDate: endDate||today};
@@ -405,14 +417,14 @@ function dateRangeLabel(start,end){
 function toggleGroup(key){
   const idx = collapsedGroups.indexOf(key);
   if(idx>=0) collapsedGroups.splice(idx,1); else collapsedGroups.push(key);
-  localStorage.setItem('settle_collapsed', JSON.stringify(collapsedGroups));
+  autoSave();
   render();
 }
 
 function toggleSubGroup(key){
   const idx = collapsedSubGroups.indexOf(key);
   if(idx>=0) collapsedSubGroups.splice(idx,1); else collapsedSubGroups.push(key);
-  localStorage.setItem('settle_sub_collapsed', JSON.stringify(collapsedSubGroups));
+  autoSave();
   render();
 }
 
@@ -608,12 +620,17 @@ function delRow(i){
 }
 
 let autoTimer;
+let _lastSyncStr = null; // 내 저장으로 발생한 realtime 이벤트 무시용
+
 function setSaveStatus(state){
   const el = document.getElementById('saveStatus');
   if(!el) return;
   if(state==='saving'){
     el.className='save-status saving';
     el.innerHTML='<i class="ti ti-loader-2"></i><span>저장 중...</span>';
+  } else if(state==='loading'){
+    el.className='save-status saving';
+    el.innerHTML='<i class="ti ti-loader-2"></i><span>불러오는 중...</span>';
   } else {
     const now = new Date();
     const t = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
@@ -622,19 +639,74 @@ function setSaveStatus(state){
   }
 }
 
+async function saveToDB(){
+  const payload = {
+    id: _RECORD,
+    rows,
+    acct_map: acctMap,
+    collapsed_groups: collapsedGroups,
+    collapsed_sub_groups: collapsedSubGroups,
+    updated_at: new Date().toISOString()
+  };
+  _lastSyncStr = JSON.stringify(rows);
+  // localStorage 백업
+  localStorage.setItem('settle_rows',           JSON.stringify(rows));
+  localStorage.setItem('settle_collapsed',       JSON.stringify(collapsedGroups));
+  localStorage.setItem('settle_sub_collapsed',   JSON.stringify(collapsedSubGroups));
+  localStorage.setItem('settle_acctmap',         JSON.stringify(acctMap));
+  const { error } = await sb.from('settlement_data').upsert(payload);
+  if(error) console.error('Supabase 저장 오류:', error);
+}
+
 function autoSave(){
   setSaveStatus('saving');
   clearTimeout(autoTimer);
-  autoTimer = setTimeout(()=>{
-    localStorage.setItem('settle_rows',JSON.stringify(rows));
+  autoTimer = setTimeout(async ()=>{
+    await saveToDB();
     setSaveStatus('saved');
   }, 400);
 }
 
 function forceSave(){
   clearTimeout(autoTimer);
-  localStorage.setItem('settle_rows',JSON.stringify(rows));
+  saveToDB().then(()=>setSaveStatus('saved'));
+}
+
+function subscribeToChanges(){
+  sb.channel('settlement-sync')
+    .on('postgres_changes', {event:'*', schema:'public', table:'settlement_data', filter:`id=eq.${_RECORD}`}, payload=>{
+      if(!payload.new || !payload.new.rows) return;
+      const d = payload.new;
+      // 내 저장으로 발생한 이벤트 무시
+      if(_lastSyncStr && JSON.stringify(d.rows) === _lastSyncStr){ _lastSyncStr=null; return; }
+      _lastSyncStr = null;
+      rows              = d.rows;
+      acctMap           = d.acct_map           || {};
+      collapsedGroups    = d.collapsed_groups    || [];
+      collapsedSubGroups = d.collapsed_sub_groups|| [];
+      migrateRows(rows);
+      render();
+      setSaveStatus('saved');
+    })
+    .subscribe();
+}
+
+async function init(){
+  setSaveStatus('loading');
+  try {
+    const { data, error } = await sb.from('settlement_data').select('*').eq('id', _RECORD).single();
+    if(!error && data && data.rows){
+      rows              = data.rows.length ? data.rows : rows;
+      acctMap           = data.acct_map            || {};
+      collapsedGroups    = data.collapsed_groups    || [];
+      collapsedSubGroups = data.collapsed_sub_groups|| [];
+      migrateRows(rows);
+    }
+  } catch(e){ console.warn('Supabase 로드 실패, localStorage 사용:', e); }
+  render();
+  initColResize();
   setSaveStatus('saved');
+  subscribeToChanges();
 }
 
 function excelDateToStr(v){
@@ -844,12 +916,9 @@ function initColResize(){
   });
 }
 
-applyAcctMap();
-render();
-initColResize();
-setSaveStatus('saved');
-
 window.addEventListener('beforeunload', forceSave);
+
+init();
 </script>
 </body>
 </html>
