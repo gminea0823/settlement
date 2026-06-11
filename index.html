@@ -339,6 +339,17 @@ function sortByColumn(key,dir){
   render();
 }
 
+function buildAcctLookup(){
+  // acctMap(계좌정보 업로드) + 기존 행에 직접 입력된 데이터를 합산
+  const map = Object.assign({}, acctMap);
+  rows.forEach(r=>{
+    if(r.company && (r.rep||r.acct||r.bank)){
+      map[r.company] = {rep:r.rep, acct:r.acct, bank:r.bank};
+    }
+  });
+  return map;
+}
+
 function applyAcctMap(){
   rows.forEach(r=>{
     if(r.company && acctMap[r.company]){
@@ -349,12 +360,25 @@ function applyAcctMap(){
   });
 }
 
+// 엑셀 업로드 후 자동완성: rep/acct/bank 가 비어있는 행만 채움
+function autoFillNewRows(){
+  const map = buildAcctLookup();
+  rows.forEach(r=>{
+    if(r.company && map[r.company] && !r.rep && !r.acct && !r.bank){
+      r.rep = map[r.company].rep;
+      r.acct = map[r.company].acct;
+      r.bank = map[r.company].bank;
+    }
+  });
+}
+
 function onCompanyBlur(i){
   const company = rows[i].company;
-  if(company && acctMap[company]){
-    rows[i].rep = acctMap[company].rep;
-    rows[i].acct = acctMap[company].acct;
-    rows[i].bank = acctMap[company].bank;
+  const map = buildAcctLookup();
+  if(company && map[company]){
+    rows[i].rep = map[company].rep;
+    rows[i].acct = map[company].acct;
+    rows[i].bank = map[company].bank;
     autoSave();
     render();
   }
@@ -663,7 +687,7 @@ function importExcel(file){
           added++;
         }
       });
-      applyAcctMap(); render(); autoSave();
+      autoFillNewRows(); render(); autoSave();
       alert(`${updated}건 업데이트, ${added}건 신규 추가했어요.`);
     } else {
       // 전체 업로드
@@ -678,7 +702,7 @@ function importExcel(file){
           settleType:'', amount:Number(r[amountCol]||0).toFixed(2), settle:'', tax:''});
         added++;
       });
-      applyAcctMap(); render(); autoSave();
+      autoFillNewRows(); render(); autoSave();
       alert(`${added}건의 데이터를 불러왔어요.`);
     }
   };
