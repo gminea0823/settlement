@@ -14,7 +14,7 @@
   .save-status i{font-size:13px}
   .save-status.saving{color:#BA7517}
   .save-status.saved{color:#6B8CAE}
-  .wrap{max-width:1300px;margin:0 auto;padding:1.5rem}
+  .wrap{max-width:1600px;margin:0 auto;padding:1.5rem}
   .sub{font-size:13px;color:#7C8FA6;margin-bottom:1.25rem;margin-top:4px}
   .summary{display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap}
   .stat{background:#fff;border-radius:10px;padding:12px 20px;min-width:130px;border:0.5px solid #D7E2EE}
@@ -28,7 +28,7 @@
   .toolbar button.primary{background:#6B8CAE;color:#fff;border-color:#6B8CAE}
   .toolbar button.primary:hover{background:#51718F}
   .tbl-wrap{overflow-x:auto;border-radius:12px;border:0.5px solid #D7E2EE;background:#fff}
-  table{width:100%;border-collapse:collapse;font-size:13px;min-width:960px;table-layout:fixed}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:1150px;table-layout:fixed}
   thead tr{background:#EAF1F8}
   th{padding:10px 10px;text-align:left;font-weight:500;color:#7C8FA6;border-bottom:0.5px solid #D7E2EE;white-space:nowrap;font-size:12px;position:relative;overflow:hidden}
   td{padding:8px 10px;border-bottom:0.5px solid #E6EEF6;vertical-align:middle;overflow:hidden}
@@ -72,7 +72,7 @@
   tr.row-il:hover td{background:#DBEAFE}
   .editable{background:transparent;border:none;outline:none;font-size:13px;color:#1E2D3D;width:100%;font-family:inherit;padding:3px 5px;border-radius:5px}
   .editable:focus{background:#E2EBF4;outline:2px solid #6B8CAE;outline-offset:-1px}
-  input[type="date"].editable{min-width:120px;cursor:pointer}
+  input[type="date"].editable{min-width:100px;cursor:pointer}
   select.status-sel{font-size:12px;padding:4px 8px;border-radius:20px;border:0.5px solid;cursor:pointer;font-family:inherit;outline:none;background:transparent;transition:all .15s}
   select.done{background:#EAF3DE;color:#3B6D11;border-color:#639922}
   select.pending{background:#FAEEDA;color:#854F0B;border-color:#BA7517}
@@ -158,16 +158,16 @@
     <table id="tbl">
       <colgroup>
         <col style="width:40px">
-        <col style="width:120px">
-        <col style="width:120px">
-        <col style="width:220px">
+        <col style="width:110px">
+        <col style="width:110px">
+        <col style="width:160px">
+        <col style="width:80px">
+        <col style="width:135px">
+        <col style="width:80px">
         <col style="width:90px">
-        <col style="width:150px">
+        <col style="width:110px">
         <col style="width:90px">
-        <col style="width:100px">
-        <col style="width:120px">
-        <col style="width:100px">
-        <col style="width:120px">
+        <col style="width:110px">
         <col style="width:36px">
       </colgroup>
       <thead>
@@ -897,6 +897,11 @@ function exportCSV(){
 function initColResize(){
   const cols = document.querySelectorAll('#tbl colgroup col');
   const ths = document.querySelectorAll('#headRow th');
+  const LAYOUT_VER = '2';
+  if(localStorage.getItem('settle_layout_ver') !== LAYOUT_VER){
+    localStorage.removeItem('settle_colwidths');
+    localStorage.setItem('settle_layout_ver', LAYOUT_VER);
+  }
   const saved = JSON.parse(localStorage.getItem('settle_colwidths')||'null');
   if(saved){
     cols.forEach((col,i)=>{ if(saved[i]) col.style.width = saved[i]+'px'; });
