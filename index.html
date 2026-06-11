@@ -70,6 +70,11 @@
   select.done{background:#EAF3DE;color:#3B6D11;border-color:#639922}
   select.pending{background:#FAEEDA;color:#854F0B;border-color:#BA7517}
   select.none{background:#E6EEF5;color:#8094A8;border-color:#C7D6E5}
+  select.type-il{background:#E3F2FD;color:#1565C0;border-color:#42A5F5}
+  select.type-ju{background:#F3E5F5;color:#6A1B9A;border-color:#AB47BC}
+  .sec-btn{background:none;border:0.5px solid #B8CEDF;border-radius:5px;font-size:11px;padding:2px 8px;cursor:pointer;color:#7C8FA6;font-family:inherit;white-space:nowrap}
+  .sec-btn:hover{background:#fff;color:#1E2D3D;border-color:#6B8CAE}
+  .subgroup-header td{overflow:visible}
   .row-num{color:#A9BDD1;font-size:11px;text-align:center;width:28px}
   .del-btn{background:none;border:none;cursor:pointer;color:#A9BDD1;font-size:15px;padding:3px 7px;border-radius:5px}
   .del-btn:hover{color:#E24B4A;background:#FCEBEB}
@@ -103,6 +108,10 @@
     #filterPanel .fp-item:hover{background:#2A3A4A}
     #filterPanel .fp-buttons button{background:#1F2937;color:#DBE6F0;border-color:#34465C}
     select.none{background:#2A3A4A;color:#8FA3B8;border-color:#3D5066}
+    select.type-il{background:#1A2C3F;color:#90CAF9;border-color:#1976D2}
+    select.type-ju{background:#2D1B3D;color:#CE93D8;border-color:#8E24AA}
+    .sec-btn{border-color:#34465C;color:#7E93AA}
+    .sec-btn:hover{background:#2A3A4A;color:#DBE6F0;border-color:#6B8CAE}
     .toolbar button{background:#1F2937;color:#DBE6F0;border-color:#34465C}
     .toolbar button:hover{background:#2A3A4A}
   }
@@ -144,6 +153,7 @@
         <col style="width:90px">
         <col style="width:150px">
         <col style="width:90px">
+        <col style="width:100px">
         <col style="width:120px">
         <col style="width:100px">
         <col style="width:120px">
@@ -158,6 +168,7 @@
           <th>대표자<span class="filter-btn" data-key="rep" onclick="toggleFilterPanel(event,'rep')"><i class="ti ti-filter"></i></span></th>
           <th>계좌번호<span class="filter-btn" data-key="acct" onclick="toggleFilterPanel(event,'acct')"><i class="ti ti-filter"></i></span></th>
           <th>은행<span class="filter-btn" data-key="bank" onclick="toggleFilterPanel(event,'bank')"><i class="ti ti-filter"></i></span></th>
+          <th>정산구분<span class="filter-btn" data-key="settleType" onclick="toggleFilterPanel(event,'settleType')"><i class="ti ti-filter"></i></span></th>
           <th style="text-align:right">이체금액 (원)<span class="filter-btn" data-key="amount" onclick="toggleFilterPanel(event,'amount')"><i class="ti ti-filter"></i></span></th>
           <th>정산현황<span class="filter-btn" data-key="settle" onclick="toggleFilterPanel(event,'settle')"><i class="ti ti-filter"></i></span></th>
           <th>세금계산서 발행<span class="filter-btn" data-key="tax" onclick="toggleFilterPanel(event,'tax')"><i class="ti ti-filter"></i></span></th>
@@ -174,13 +185,14 @@
 const today = new Date().toISOString().split('T')[0];
 
 let rows = JSON.parse(localStorage.getItem('settle_rows') || 'null') || [
-  {startDate:today,endDate:today,company:'',rep:'',acct:'',bank:'',amount:'',settle:'',tax:''}
+  {startDate:today,endDate:today,company:'',rep:'',acct:'',bank:'',settleType:'',amount:'',settle:'',tax:''}
 ];
 rows.forEach(r=>{
   if(r.startDate===undefined) r.startDate = r.date || today;
   if(r.endDate===undefined) r.endDate = r.date || today;
   if(r.settle==='미완료') r.settle = '';
   if(r.tax==='미완료') r.tax = '';
+  if(r.settleType===undefined) r.settleType = '';
 });
 
 let collapsedGroups = JSON.parse(localStorage.getItem('settle_collapsed') || '[]');
@@ -192,6 +204,7 @@ const FILTER_COLS = {
   rep:{label:'대표자'},
   acct:{label:'계좌번호'},
   bank:{label:'은행'},
+  settleType:{label:'정산구분', display:v=>v||'-'},
   amount:{label:'이체금액', numeric:true, display:v=>v===''?'(공백)':formatAmount(v)},
   settle:{label:'정산현황', display:v=>v==='완료'?'✓ 완료':v==='미완료'?'✗ 미완료':'-'},
   tax:{label:'세금계산서 발행', display:v=>v==='완료'?'✓ 완료':v==='미완료'?'✗ 미완료':'-'}
@@ -370,6 +383,13 @@ function rowHtml(r,i){
       <td><input class="editable" placeholder="대표자명" value="${r.rep}" oninput="rows[${i}].rep=this.value;autoSave()" style="min-width:80px"></td>
       <td><input class="editable" placeholder="계좌번호" value="${r.acct}" oninput="rows[${i}].acct=this.value;autoSave()" style="min-width:140px"></td>
       <td><input class="editable" placeholder="은행명" value="${r.bank}" oninput="rows[${i}].bank=this.value;autoSave()" style="min-width:80px"></td>
+      <td>
+        <select class="status-sel ${settleTypeClass(r.settleType)}" onchange="rows[${i}].settleType=this.value;this.className='status-sel '+settleTypeClass(this.value);autoSave()">
+          <option value="" ${!r.settleType?'selected':''}>-</option>
+          <option value="일선정산" ${r.settleType==='일선정산'?'selected':''}>일선정산</option>
+          <option value="주정산" ${r.settleType==='주정산'?'selected':''}>주정산</option>
+        </select>
+      </td>
       <td><input class="editable amount-input" placeholder="0" value="${formatAmount(r.amount)}" onfocus="this.value=rows[${i}].amount" onblur="this.value=formatAmount(rows[${i}].amount)" oninput="rows[${i}].amount=this.value;autoSave();updateSummary()" style="min-width:110px"></td>
       <td>
         <select class="status-sel ${statusClass(r.settle)}" onchange="rows[${i}].settle=this.value;this.className='status-sel '+statusClass(this.value);autoSave();updateSummary()">
@@ -407,7 +427,7 @@ function render(){
   });
 
   if(sortedKeys.length===0){
-    tb.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#888780;padding:20px">검색 결과가 없어요.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#888780;padding:20px">검색 결과가 없어요.</td></tr>';
     updateSummary();
     updateFilterBtnStates();
     return;
@@ -419,7 +439,7 @@ function render(){
 
     const headerTr = document.createElement('tr');
     headerTr.className = 'group-header'+(collapsed?' collapsed':'');
-    headerTr.innerHTML = `<td colspan="11" onclick="toggleGroup('${key}')"><i class="ti ti-chevron-down"></i>${key}<span class="group-count">${indices.length}건</span></td>`;
+    headerTr.innerHTML = `<td colspan="12" onclick="toggleGroup('${key}')"><i class="ti ti-chevron-down"></i>${key}<span class="group-count">${indices.length}건</span></td>`;
     tb.appendChild(headerTr);
 
     if(!collapsed){
@@ -443,7 +463,7 @@ function render(){
 
         const subHeaderTr = document.createElement('tr');
         subHeaderTr.className = 'subgroup-header';
-        subHeaderTr.innerHTML = `<td colspan="11">${label}<span class="group-count">${subIndices.length}건</span></td>`;
+        subHeaderTr.innerHTML = `<td colspan="12"><div style="display:flex;align-items:center;gap:6px">${label}<span class="group-count">${subIndices.length}건</span><span style="margin-left:auto;display:flex;gap:4px"><button class="sec-btn" onclick="resetSectionExcel([${subIndices.join(',')}])" title="이 구간 협력사·이체금액·정산일 초기화"><i class="ti ti-eraser" style="font-size:11px"></i> 엑셀 초기화</button><button class="sec-btn" onclick="resetSectionAcct([${subIndices.join(',')}])" title="이 구간 대표자·계좌·은행 초기화"><i class="ti ti-trash" style="font-size:11px"></i> 계좌 초기화</button></span></div></td>`;
         tb.appendChild(subHeaderTr);
 
         subIndices.forEach(i=>{
@@ -456,7 +476,7 @@ function render(){
         const subtotal = subIndices.reduce((s,i)=>s+(parseFloat(String(rows[i].amount).replace(/[^0-9.\-]/g,''))||0),0);
         const subtotalTr = document.createElement('tr');
         subtotalTr.className = 'group-subtotal';
-        subtotalTr.innerHTML = `<td colspan="7" class="subtotal-label">${label} 이체 합계</td><td class="subtotal-amt">${formatAmount(subtotal)}</td><td colspan="3"></td>`;
+        subtotalTr.innerHTML = `<td colspan="8" class="subtotal-label">${label} 이체 합계</td><td class="subtotal-amt">${formatAmount(subtotal)}</td><td colspan="3"></td>`;
         tb.appendChild(subtotalTr);
       });
     }
@@ -474,6 +494,25 @@ function updateFilterBtnStates(){
 
 function statusClass(v){
   return v==='완료' ? 'done' : v==='미완료' ? 'pending' : 'none';
+}
+
+function settleTypeClass(v){
+  return v==='일선정산' ? 'type-il' : v==='주정산' ? 'type-ju' : 'none';
+}
+
+function resetSectionExcel(indices){
+  if(!confirm(`이 구간 ${indices.length}건의 협력사명·이체금액·정산시작일·정산종료일을 초기화할까요?`)) return;
+  indices.forEach(i=>{
+    rows[i].company=''; rows[i].amount='';
+    rows[i].startDate=today; rows[i].endDate=today;
+  });
+  autoSave(); render();
+}
+
+function resetSectionAcct(indices){
+  if(!confirm(`이 구간 ${indices.length}건의 대표자·계좌번호·은행을 초기화할까요?`)) return;
+  indices.forEach(i=>{ rows[i].rep=''; rows[i].acct=''; rows[i].bank=''; });
+  autoSave(); render();
 }
 
 function formatAmount(v){
@@ -498,7 +537,7 @@ function updateSummary(){
 
 function addRow(){
   const newIdx = rows.length;
-  rows.push({startDate:today,endDate:today,company:'',rep:'',acct:'',bank:'',amount:'',settle:'',tax:''});
+  rows.push({startDate:today,endDate:today,company:'',rep:'',acct:'',bank:'',settleType:'',amount:'',settle:'',tax:''});
   autoSave();
   render();
   setTimeout(()=>{
@@ -593,7 +632,7 @@ function importExcel(file){
         startDate: excelDateToStr(r[startCol]),
         endDate: excelDateToStr(r[endCol]),
         company: String(r[companyCol]),
-        rep:'', acct:'', bank:'',
+        rep:'', acct:'', bank:'', settleType:'',
         amount: Number(r[amountCol]||0).toFixed(2),
         settle:'', tax:''
       });
@@ -694,9 +733,9 @@ function resetAccountFields(){
 }
 
 function exportCSV(){
-  const headers=['정산시작일','정산종료일','소속협력사','대표자','계좌','은행','이체금액','정산현황','세금계산서발행'];
+  const headers=['정산시작일','정산종료일','소속협력사','대표자','계좌','은행','정산구분','이체금액','정산현황','세금계산서발행'];
   const lines=['\uFEFF'+headers.join(',')];
-  rows.forEach(r=>lines.push([r.startDate,r.endDate,'"'+r.company+'"','"'+r.rep+'"','"'+r.acct+'"','"'+r.bank+'"',r.amount,r.settle,r.tax].join(',')));
+  rows.forEach(r=>lines.push([r.startDate,r.endDate,'"'+r.company+'"','"'+r.rep+'"','"'+r.acct+'"','"'+r.bank+'"',r.settleType||'',r.amount,r.settle,r.tax].join(',')));
   const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='정산현황_'+today+'.csv';a.click();
