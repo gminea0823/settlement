@@ -63,6 +63,8 @@
   #filterPanel .fp-buttons button.primary{background:#6B8CAE;color:#fff;border-color:#6B8CAE}
   tbody tr:last-child td{border-bottom:none}
   tbody tr:hover td{background:#F4F8FC}
+  tr.row-ju td{background:#FAF5FF}
+  tr.row-ju:hover td{background:#F3E8FF}
   .editable{background:transparent;border:none;outline:none;font-size:13px;color:#1E2D3D;width:100%;font-family:inherit;padding:3px 5px;border-radius:5px}
   .editable:focus{background:#E2EBF4;outline:2px solid #6B8CAE;outline-offset:-1px}
   input[type="date"].editable{min-width:120px;cursor:pointer}
@@ -93,6 +95,8 @@
     .editable{color:#DBE6F0}
     .editable:focus{background:#1B2530}
     tbody tr:hover td{background:#1B2530}
+    tr.row-ju td{background:#1E1530}
+    tr.row-ju:hover td{background:#261B3A}
     td{border-color:#2A3A4A}
     th{color:#7E93AA}
     .group-header td{background:#1E2C3B}
@@ -136,10 +140,8 @@
     <button class="primary" onclick="addRow()"><i class="ti ti-plus"></i> 행 추가</button>
     <button onclick="document.getElementById('excelInput').click()"><i class="ti ti-file-spreadsheet"></i> 엑셀 업로드</button>
     <input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this.files[0])">
-    <button onclick="resetExcelFields()" title="엑셀에서 불러온 협력사·이체금액·정산일을 초기화합니다"><i class="ti ti-eraser"></i> 엑셀 데이터 초기화</button>
     <button onclick="document.getElementById('acctInput').click()"><i class="ti ti-building-bank"></i> 계좌정보 업로드</button>
     <input type="file" id="acctInput" accept=".xlsx,.xls" style="display:none" onchange="importAccountInfo(this.files[0])">
-    <button onclick="resetAccountFields()" title="모든 행의 대표자·계좌번호·은행을 초기화합니다"><i class="ti ti-trash"></i> 계좌정보 초기화</button>
     <button onclick="exportCSV()"><i class="ti ti-download"></i> CSV 저장</button>
   </div>
 
@@ -197,6 +199,10 @@ rows.forEach(r=>{
 
 let collapsedGroups = JSON.parse(localStorage.getItem('settle_collapsed') || '[]');
 let acctMap = JSON.parse(localStorage.getItem('settle_acctmap') || '{}');
+let sectionTarget = null;
+function setSectionTarget(indices, startDate, endDate){
+  sectionTarget = {indices, startDate: startDate||today, endDate: endDate||today};
+}
 const FILTER_COLS = {
   startDate:{label:'정산시작일'},
   endDate:{label:'정산종료일'},
@@ -384,7 +390,7 @@ function rowHtml(r,i){
       <td><input class="editable" placeholder="계좌번호" value="${r.acct}" oninput="rows[${i}].acct=this.value;autoSave()" style="min-width:140px"></td>
       <td><input class="editable" placeholder="은행명" value="${r.bank}" oninput="rows[${i}].bank=this.value;autoSave()" style="min-width:80px"></td>
       <td>
-        <select class="status-sel ${settleTypeClass(r.settleType)}" onchange="rows[${i}].settleType=this.value;this.className='status-sel '+settleTypeClass(this.value);autoSave()">
+        <select class="status-sel ${settleTypeClass(r.settleType)}" onchange="rows[${i}].settleType=this.value;this.className='status-sel '+settleTypeClass(this.value);this.closest('tr').classList.toggle('row-ju',this.value==='주정산');autoSave()">
           <option value="" ${!r.settleType?'selected':''}>-</option>
           <option value="일선정산" ${r.settleType==='일선정산'?'selected':''}>일선정산</option>
           <option value="주정산" ${r.settleType==='주정산'?'selected':''}>주정산</option>
@@ -463,12 +469,13 @@ function render(){
 
         const subHeaderTr = document.createElement('tr');
         subHeaderTr.className = 'subgroup-header';
-        subHeaderTr.innerHTML = `<td colspan="12"><div style="display:flex;align-items:center;gap:6px">${label}<span class="group-count">${subIndices.length}건</span><span style="margin-left:auto;display:flex;gap:4px"><button class="sec-btn" onclick="resetSectionExcel([${subIndices.join(',')}])" title="이 구간 협력사·이체금액·정산일 초기화"><i class="ti ti-eraser" style="font-size:11px"></i> 엑셀 초기화</button><button class="sec-btn" onclick="resetSectionAcct([${subIndices.join(',')}])" title="이 구간 대표자·계좌·은행 초기화"><i class="ti ti-trash" style="font-size:11px"></i> 계좌 초기화</button></span></div></td>`;
+        subHeaderTr.innerHTML = `<td colspan="12"><div style="display:flex;align-items:center;gap:6px">${label}<span class="group-count">${subIndices.length}건</span><span style="margin-left:auto;display:flex;gap:4px"><button class="sec-btn" onclick="setSectionTarget([${subIndices.join(',')}],'${first.startDate}','${first.endDate}');document.getElementById('excelInput').click()" title="이 구간 엑셀 업로드"><i class="ti ti-file-spreadsheet" style="font-size:11px"></i> 엑셀 업로드</button><button class="sec-btn" onclick="setSectionTarget([${subIndices.join(',')}]);document.getElementById('acctInput').click()" title="이 구간 계좌정보 업로드"><i class="ti ti-building-bank" style="font-size:11px"></i> 계좌 업로드</button><button class="sec-btn" onclick="resetSectionExcel([${subIndices.join(',')}])" title="이 구간 협력사·이체금액·정산일 초기화"><i class="ti ti-eraser" style="font-size:11px"></i> 초기화</button><button class="sec-btn" onclick="resetSectionAcct([${subIndices.join(',')}])" title="이 구간 대표자·계좌·은행 초기화"><i class="ti ti-trash" style="font-size:11px"></i> 계좌 초기화</button></span></div></td>`;
         tb.appendChild(subHeaderTr);
 
         subIndices.forEach(i=>{
           const tr = document.createElement('tr');
           tr.dataset.idx = i;
+          if(rows[i].settleType==='주정산') tr.classList.add('row-ju');
           tr.innerHTML = rowHtml(rows[i], i);
           tb.appendChild(tr);
         });
@@ -600,6 +607,7 @@ function excelDateToStr(v){
 
 function importExcel(file){
   if(!file) return;
+  const target = sectionTarget; sectionTarget = null;
   const reader = new FileReader();
   reader.onload = (e)=>{
     const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
@@ -614,34 +622,49 @@ function importExcel(file){
     if(companyCol===-1) companyCol = header.findIndex(h=>h.includes('협력사')&&!h.includes('아이디')&&!h.toUpperCase().includes('ID'));
     const amountCol = header.findIndex(h=>h.includes('정산예정금액'));
 
-    if(startCol===-1||endCol===-1||companyCol===-1||amountCol===-1){
-      alert('필요한 컬럼(정산시작일/정산종료일/협력사명/정산예정금액)을 찾을 수 없어요.');
+    if(companyCol===-1||amountCol===-1){
+      alert('필요한 컬럼(협력사명/정산예정금액)을 찾을 수 없어요.');
       return;
     }
 
-    // 비어있는 기본 행은 제거하고 가져오기
-    if(rows.length===1 && !rows[0].company && !rows[0].amount){
-      rows = [];
-    }
+    const dataRows = aoa.slice(1).filter(r=>r && r[companyCol]);
 
-    let added = 0;
-    for(let i=1;i<aoa.length;i++){
-      const r = aoa[i];
-      if(!r || !r[companyCol]) continue;
-      rows.push({
-        startDate: excelDateToStr(r[startCol]),
-        endDate: excelDateToStr(r[endCol]),
-        company: String(r[companyCol]),
-        rep:'', acct:'', bank:'', settleType:'',
-        amount: Number(r[amountCol]||0).toFixed(2),
-        settle:'', tax:''
+    if(target){
+      // 섹션별 업로드: 해당 섹션 행 순서대로 업데이트, 초과분은 섹션 날짜로 신규 추가
+      let updated = 0, added = 0;
+      dataRows.forEach((r, idx)=>{
+        const rowIdx = target.indices[idx];
+        if(rowIdx !== undefined){
+          rows[rowIdx].company = String(r[companyCol]);
+          rows[rowIdx].amount  = Number(r[amountCol]||0).toFixed(2);
+          rows[rowIdx].startDate = target.startDate;
+          rows[rowIdx].endDate   = target.endDate;
+          updated++;
+        } else {
+          rows.push({startDate:target.startDate, endDate:target.endDate,
+            company:String(r[companyCol]), rep:'', acct:'', bank:'',
+            settleType:'', amount:Number(r[amountCol]||0).toFixed(2), settle:'', tax:''});
+          added++;
+        }
       });
-      added++;
+      applyAcctMap(); render(); autoSave();
+      alert(`${updated}건 업데이트, ${added}건 신규 추가했어요.`);
+    } else {
+      // 전체 업로드
+      if(startCol===-1||endCol===-1){
+        alert('필요한 컬럼(정산시작일/정산종료일)을 찾을 수 없어요.'); return;
+      }
+      if(rows.length===1 && !rows[0].company && !rows[0].amount) rows = [];
+      let added = 0;
+      dataRows.forEach(r=>{
+        rows.push({startDate:excelDateToStr(r[startCol]), endDate:excelDateToStr(r[endCol]),
+          company:String(r[companyCol]), rep:'', acct:'', bank:'',
+          settleType:'', amount:Number(r[amountCol]||0).toFixed(2), settle:'', tax:''});
+        added++;
+      });
+      applyAcctMap(); render(); autoSave();
+      alert(`${added}건의 데이터를 불러왔어요.`);
     }
-    applyAcctMap();
-    render();
-    autoSave();
-    alert(`${added}건의 데이터를 불러왔어요.`);
   };
   reader.readAsArrayBuffer(file);
   document.getElementById('excelInput').value='';
@@ -649,6 +672,7 @@ function importExcel(file){
 
 function importAccountInfo(file){
   if(!file) return;
+  const target = sectionTarget; sectionTarget = null;
   const reader = new FileReader();
   reader.onload = (e)=>{
     const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
@@ -657,7 +681,6 @@ function importAccountInfo(file){
     if(aoa.length < 2){ alert('데이터가 없는 파일이에요.'); return; }
 
     const header = aoa[0].map(h=>String(h||'').trim());
-
     let companyCol = header.findIndex(h=>h.includes('협력사명'));
     if(companyCol===-1) companyCol = header.findIndex(h=>h.includes('협력사')&&!h.includes('아이디')&&!h.toUpperCase().includes('ID'));
     const repCol = header.findIndex(h=>h.includes('대표자'));
@@ -671,37 +694,35 @@ function importAccountInfo(file){
       return;
     }
 
-    // 엑셀 데이터를 협력사명 기준으로 맵 생성
     const infoMap = {};
     for(let i=1;i<aoa.length;i++){
       const r = aoa[i];
       const company = String(r[companyCol]||'').trim();
       if(!company) continue;
       infoMap[company] = {
-        rep:  String(r[repCol]||'').trim(),
+        rep: String(r[repCol]||'').trim(),
         acct: String(r[acctCol]||'').trim(),
         bank: String(r[bankCol]||'').trim()
       };
     }
 
-    // 소속협력사 기준으로 매칭하여 업데이트, 미매칭 행은 공란 유지
+    // 섹션 또는 전체에서 협력사명 기준 매칭
+    const targetIndices = target ? target.indices : rows.map((_,i)=>i);
     let updated = 0;
-    rows.forEach(r=>{
+    targetIndices.forEach(i=>{
+      const r = rows[i];
       if(r.company && infoMap[r.company]){
         const info = infoMap[r.company];
-        r.rep = info.rep;
-        r.acct = info.acct;
-        r.bank = info.bank;
+        r.rep = info.rep; r.acct = info.acct; r.bank = info.bank;
         acctMap[r.company] = info;
         updated++;
       }
     });
 
-    const unmatched = Object.keys(infoMap).filter(c=>!rows.some(r=>r.company===c)).length;
+    const unmatched = Object.keys(infoMap).filter(c=>!targetIndices.some(i=>rows[i].company===c)).length;
 
     localStorage.setItem('settle_acctmap', JSON.stringify(acctMap));
-    render();
-    autoSave();
+    render(); autoSave();
 
     let msg = `${updated}건의 계좌정보를 갱신했어요.`;
     if(unmatched>0) msg += `\n소속협력사가 일치하지 않는 ${unmatched}건은 반영되지 않았어요.`;
