@@ -618,43 +618,55 @@ function importAccountInfo(file){
     if(aoa.length < 2){ alert('데이터가 없는 파일이에요.'); return; }
 
     const header = aoa[0].map(h=>String(h||'').trim());
+
+    let companyCol = header.findIndex(h=>h.includes('협력사명'));
+    if(companyCol===-1) companyCol = header.findIndex(h=>h.includes('협력사')&&!h.includes('아이디')&&!h.toUpperCase().includes('ID'));
     const repCol = header.findIndex(h=>h.includes('대표자'));
     let acctCol = header.findIndex(h=>h.includes('계좌번호'));
     if(acctCol===-1) acctCol = header.findIndex(h=>h.includes('계좌'));
     let bankCol = header.findIndex(h=>h.includes('은행명'));
     if(bankCol===-1) bankCol = header.findIndex(h=>h.includes('은행'));
 
-    if(repCol===-1||acctCol===-1||bankCol===-1){
-      alert('필요한 컬럼(대표자/계좌번호/은행)을 찾을 수 없어요.');
+    if(companyCol===-1||repCol===-1||acctCol===-1||bankCol===-1){
+      alert('필요한 컬럼(소속협력사/대표자/계좌번호/은행)을 찾을 수 없어요.');
       return;
     }
 
-    // 정산현황표와 같은 행 순서라고 가정하고 순서대로 매칭
-    let updated = 0, addedNew = 0;
+    // 엑셀 데이터를 협력사명 기준으로 맵 생성
+    const infoMap = {};
     for(let i=1;i<aoa.length;i++){
       const r = aoa[i];
-      const rep = String(r[repCol]||'');
-      const acct = String(r[acctCol]||'');
-      const bank = String(r[bankCol]||'');
-      if(!rep && !acct && !bank) continue;
-
-      const idx = i-1;
-      if(rows[idx]){
-        rows[idx].rep = rep;
-        rows[idx].acct = acct;
-        rows[idx].bank = bank;
-        if(rows[idx].company) acctMap[rows[idx].company] = {rep, acct, bank};
-        updated++;
-      } else {
-        rows.push({startDate:today,endDate:today,company:'',rep,acct,bank,amount:'',settle:'',tax:''});
-        addedNew++;
-      }
+      const company = String(r[companyCol]||'').trim();
+      if(!company) continue;
+      infoMap[company] = {
+        rep:  String(r[repCol]||'').trim(),
+        acct: String(r[acctCol]||'').trim(),
+        bank: String(r[bankCol]||'').trim()
+      };
     }
+
+    // 소속협력사 기준으로 매칭하여 업데이트, 미매칭 행은 공란 유지
+    let updated = 0;
+    rows.forEach(r=>{
+      if(r.company && infoMap[r.company]){
+        const info = infoMap[r.company];
+        r.rep = info.rep;
+        r.acct = info.acct;
+        r.bank = info.bank;
+        acctMap[r.company] = info;
+        updated++;
+      }
+    });
+
+    const unmatched = Object.keys(infoMap).filter(c=>!rows.some(r=>r.company===c)).length;
+
     localStorage.setItem('settle_acctmap', JSON.stringify(acctMap));
-    applyAcctMap();
     render();
     autoSave();
-    alert(`${updated}건의 계좌정보를 갱신했고, ${addedNew}건을 새 행으로 추가했어요.`);
+
+    let msg = `${updated}건의 계좌정보를 갱신했어요.`;
+    if(unmatched>0) msg += `\n소속협력사가 일치하지 않는 ${unmatched}건은 반영되지 않았어요.`;
+    alert(msg);
   };
   reader.readAsArrayBuffer(file);
   document.getElementById('acctInput').value='';
