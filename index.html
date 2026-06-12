@@ -268,6 +268,7 @@ function migrateRows(arr){
     if(r.tax==='미완료') r.tax = '';
     if(r.settleType===undefined) r.settleType = '';
     if(r.memo===undefined) r.memo = '';
+    if(r.amount && String(r.amount).includes('.')){const _n=parseFloat(r.amount);if(!isNaN(_n))r.amount=String(Math.round(_n));}
   });
 }
 migrateRows(rows);
@@ -536,7 +537,7 @@ function rowHtml(r,i){
           <option value="주정산" ${r.settleType==='주정산'?'selected':''}>주정산</option>
         </select>
       </td>
-      <td><input class="editable amount-input" placeholder="0" value="${formatAmount(r.amount)}" onfocus="this.value=rows[${i}].amount" onblur="this.value=formatAmount(rows[${i}].amount)" oninput="rows[${i}].amount=this.value;autoSave();updateSummary()" style="min-width:110px"></td>
+      <td><input class="editable amount-input" placeholder="0" value="${formatAmount(r.amount)}" onfocus="const _v=parseFloat(rows[${i}].amount);this.value=isNaN(_v)?'':Math.round(_v)" onblur="this.value=formatAmount(rows[${i}].amount)" oninput="rows[${i}].amount=this.value;autoSave();updateSummary()" style="min-width:110px"></td>
       <td>
         <select class="status-sel ${statusClass(r.settle)}" onchange="rows[${i}].settle=this.value;this.className='status-sel '+statusClass(this.value);autoSave();updateSummary()">
           <option value="" ${!r.settle?'selected':''}>-</option>
